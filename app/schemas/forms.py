@@ -13,6 +13,7 @@ class FormField(BaseModel):
 class FormItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    form_id: str | None = None
     page_url: str
     action: str | None = None
     method: str | None = None

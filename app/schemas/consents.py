@@ -5,6 +5,7 @@ class ConsentItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     page_url: str
+    form_id: str | None = None
     consent_type: str
     text: str | None = None
     selector: str | None = None

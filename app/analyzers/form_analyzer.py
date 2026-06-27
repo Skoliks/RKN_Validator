@@ -28,7 +28,7 @@ class FormAnalyzer:
                 continue
 
             soup = BeautifulSoup(page.html, "html.parser")
-            for form in soup.find_all("form"):
+            for form_index, form in enumerate(soup.find_all("form"), start=1):
                 if not isinstance(form, Tag):
                     continue
 
@@ -42,6 +42,7 @@ class FormAnalyzer:
                     fields.extend(self._extract_fallback_fields(page.html, fields))
                 items.append(
                     FormItem(
+                        form_id=self._get_form_id(form, page.final_url or page.url, form_index),
                         page_url=page.final_url or page.url,
                         action=self._get_attr(form, "action"),
                         method=(self._get_attr(form, "method") or "get").lower(),
@@ -149,3 +150,9 @@ class FormAnalyzer:
             cleaned = value.strip()
             return cleaned or None
         return None
+
+    def _get_form_id(self, form: Tag, page_url: str, form_index: int) -> str:
+        explicit_id = self._get_attr(form, "id") or self._get_attr(form, "name")
+        if explicit_id:
+            return explicit_id
+        return f"{page_url}#form-{form_index}"

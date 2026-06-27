@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -12,6 +12,7 @@ from app.schemas.pages import PagesResult
 from app.schemas.policy import PolicyResult
 from app.schemas.report import ReportResult
 from app.schemas.risk import RiskAssessment
+from app.schemas.russian_market import RussianMarketResult
 from app.schemas.security import SecurityResult
 from app.schemas.site import SiteInfo
 
@@ -39,7 +40,7 @@ class CheckResult(BaseModel):
     check: CheckMeta
     availability: AvailabilityInfo | None = None
     pages: PagesResult | None = None
-    russian_market: dict[str, Any] | None = None
+    russian_market: RussianMarketResult | None = None
     forms: FormsResult | None = None
     consents: ConsentsResult | None = None
     policy: PolicyResult | None = None

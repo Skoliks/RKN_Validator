@@ -8,6 +8,7 @@ from app.schemas.pages import CrawlResult, PageData, PageItem, PagesResult, Warn
 from app.schemas.policy import PolicyMatchedLink, PolicyResult
 from app.schemas.report import ReportResult
 from app.schemas.risk import RiskAssessment, RiskFactor
+from app.schemas.russian_market import RussianMarketResult, RussianMarketSignal
 from app.schemas.security import InsecureFormAction, SecurityResult
 from app.schemas.site import SiteInfo
 
@@ -35,6 +36,8 @@ __all__ = [
     "ReportResult",
     "RiskAssessment",
     "RiskFactor",
+    "RussianMarketResult",
+    "RussianMarketSignal",
     "SecurityResult",
     "SiteInfo",
     "WarningItem",
