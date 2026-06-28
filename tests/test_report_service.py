@@ -4,10 +4,12 @@ from app.schemas.availability import AvailabilityInfo
 from app.schemas.check import CheckMeta, CheckResult
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormField, FormItem, FormsResult
+from app.schemas.owner_requisites import OwnerRequisitesResult
 from app.schemas.pages import PageItem, PagesResult
 from app.schemas.policy import PolicyMatchedLink, PolicyResult
 from app.schemas.report import ReportResult
 from app.schemas.risk import RiskAssessment, RiskFactor
+from app.schemas.security import SecurityResult
 from app.schemas.site import SiteInfo
 from app.services.report_service import ReportService
 
@@ -19,8 +21,10 @@ def make_check_result(
     factors: list[RiskFactor] | None = None,
     availability: AvailabilityInfo | None = None,
     forms: FormsResult | None = None,
+    owner_requisites: OwnerRequisitesResult | None = None,
     policy: PolicyResult | None = None,
     external_services: ExternalServicesResult | None = None,
+    security: SecurityResult | None = None,
 ) -> CheckResult:
     return CheckResult(
         site=SiteInfo(
@@ -44,10 +48,12 @@ def make_check_result(
             items=[PageItem(url="https://example.ru", status_code=200)],
         ),
         forms=forms if forms is not None else FormsResult(),
+        owner_requisites=owner_requisites,
         policy=policy
         if policy is not None
         else PolicyResult(found=True, policy_url="https://example.ru/privacy"),
         external_services=external_services or ExternalServicesResult(),
+        security=security,
         risk_assessment=RiskAssessment(
             total_score=risk_score,
             level=risk_level,
@@ -213,3 +219,64 @@ def test_report_uses_cautious_privacy_document_wording() -> None:
         "и обработкой персональной информации."
     ) in report.summary
     assert "Найдена ссылка на политику обработки персональных данных" not in report.summary
+
+
+def test_report_mentions_found_owner_inn_and_ogrn() -> None:
+    report = ReportService().build(
+        make_check_result(
+            owner_requisites=OwnerRequisitesResult(
+                found=True,
+                organization_name='ООО "ИнфоКом"',
+                inn="2801121089",
+                ogrn="1072801006530",
+            )
+        )
+    )
+
+    assert "На проверенных страницах найдены ИНН и ОГРН владельца сайта." in report.summary
+
+
+def test_report_recommends_checking_privacy_email_when_missing() -> None:
+    report = ReportService().build(
+        make_check_result(
+            owner_requisites=OwnerRequisitesResult(
+                found=True,
+                organization_name='ООО "ИнфоКом"',
+                inn="2801121089",
+                ogrn="1072801006530",
+                privacy_email_found=False,
+            )
+        )
+    )
+
+    assert "отдельного e-mail для запросов субъектов персональных данных" in report.recommendation
+
+
+def test_report_mentions_mixed_content_without_risk_escalation() -> None:
+    report = ReportService().build(
+        make_check_result(
+            owner_requisites=OwnerRequisitesResult(
+                found=True,
+                organization_name='ООО "ИнфоКом"',
+                inn="2801121089",
+                ogrn="1072801006530",
+            ),
+            external_services=ExternalServicesResult(
+                found=True,
+                items=[
+                    ExternalServiceItem(
+                        service_type="cdn",
+                        provider="UNPKG",
+                        url="https://unpkg.com/library.js",
+                        foreign=True,
+                    )
+                ],
+            ),
+            security=SecurityResult(https_enabled=True, has_mixed_content=True),
+        )
+    )
+
+    assert (
+        "Также обнаружено подключение ресурса по незащищённому протоколу HTTP "
+        "на HTTPS-странице."
+    ) in report.summary

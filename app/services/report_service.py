@@ -77,6 +77,16 @@ class ReportService:
         elif check_result.forms is not None:
             sentences.append("На проверенных страницах формы сбора данных не найдены.")
 
+        if check_result.owner_requisites and check_result.owner_requisites.found:
+            if check_result.owner_requisites.inn and check_result.owner_requisites.ogrn:
+                sentences.append("На проверенных страницах найдены ИНН и ОГРН владельца сайта.")
+            else:
+                sentences.append("На проверенных страницах найдены отдельные реквизиты владельца сайта.")
+        elif check_result.owner_requisites is not None:
+            sentences.append(
+                "На проверенных страницах не удалось автоматически выделить реквизиты владельца сайта."
+            )
+
         if check_result.policy and check_result.policy.found:
             sentences.append(
                 "Найдена ссылка на документ, связанный с конфиденциальностью и обработкой персональной информации."
@@ -89,6 +99,11 @@ class ReportService:
         elif check_result.policy is not None:
             sentences.append(
                 "На проверенных страницах ссылка на политику обработки персональных данных не найдена."
+            )
+
+        if check_result.security and check_result.security.has_mixed_content:
+            sentences.append(
+                "Также обнаружено подключение ресурса по незащищённому протоколу HTTP на HTTPS-странице."
             )
 
         if risk:
@@ -122,32 +137,50 @@ class ReportService:
         factor_codes = {factor.code for factor in risk.factors} if risk else set()
 
         if self._has_only_external_services_without_forms(check_result):
-            return (
+            return self._with_privacy_email_recommendation(
+                check_result,
                 "Общий риск низкий. Рекомендуется вручную проверить назначение "
-                "сторонних сервисов и условия передачи данных."
+                "сторонних сервисов и условия передачи данных.",
             )
 
         if level == "high":
-            return (
+            return self._with_privacy_email_recommendation(
+                check_result,
                 "Рекомендуется провести ручную проверку и доработать документы, формы "
                 "и сторонние сервисы по найденным признакам. Особое внимание стоит "
-                "уделить передаче данных через формы и внешним провайдерам."
+                "уделить передаче данных через формы и внешним провайдерам.",
             )
 
         if level == "medium":
             if "foreign_analytics_detected" in factor_codes or "external_resource_detected" in factor_codes:
-                return (
+                return self._with_privacy_email_recommendation(
+                    check_result,
                     "Рекомендуется вручную проверить замечания по сторонним сервисам "
-                    "и документам сайта."
+                    "и документам сайта.",
                 )
-            return (
+            return self._with_privacy_email_recommendation(
+                check_result,
                 "Рекомендуется вручную проверить найденные замечания и при необходимости "
-                "уточнить документы сайта."
+                "уточнить документы сайта.",
             )
 
-        return (
+        return self._with_privacy_email_recommendation(
+            check_result,
             "Рекомендуется периодически повторять проверку и отслеживать изменения форм, "
-            "документов и сторонних сервисов."
+            "документов и сторонних сервисов.",
+        )
+
+    def _with_privacy_email_recommendation(
+        self,
+        check_result: CheckResult,
+        recommendation: str,
+    ) -> str:
+        owner_requisites = check_result.owner_requisites
+        if owner_requisites is None or owner_requisites.privacy_email_found:
+            return recommendation
+        return (
+            f"{recommendation} Рекомендуется вручную проверить наличие отдельного e-mail "
+            "для запросов субъектов персональных данных."
         )
 
     def _level_label(self, level: str) -> str:

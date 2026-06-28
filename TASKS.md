@@ -32,3 +32,18 @@ Endpoint POST /check.
 
 ## Iteration 11
 Docker, README и финальная проверка MVP.
+
+## Iteration 12
+OwnerRequisitesAnalyzer: отдельное извлечение реквизитов владельца сайта из уже загруженных страниц без внешних API.
+
+## Future iterations after MVP
+
+These items are future scope only. They must not expand the current MVP and must follow `PROJECT_RULES.md` layering and tooling constraints.
+
+- OwnerRequisitesAnalyzer improvements: improve completeness scoring, legal-address confidence, and privacy-contact context.
+- DomainComplianceAnalyzer: classify `.ru`, `.рф`, `.su` domains and produce manual follow-up items for administrator/registrar identification.
+- CookieAnalyzer: detect cookie banners, accept/decline controls, and optional cookie or tracking scripts that appear before consent.
+- AdvertisingAnalyzer: detect advertising labels, advertiser mentions, and `erid` tokens.
+- AccessibilityAnalyzer: perform lightweight static accessibility checks such as missing alt text, weak link text, heading structure, and language attributes.
+- HostingLocationAnalyzer: collect technical hosting hints and manual evidence for hosting/provider localization checks without external APIs in the MVP.
+- RknOperatorAnalyzer: document and collect manual evidence for RKN personal data operator notification status without external APIs in the MVP.

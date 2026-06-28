@@ -81,6 +81,19 @@ def test_external_services_analyzer_detects_external_link() -> None:
     assert result.items[0].url == "https://partner.example.com/page"
 
 
+def test_external_services_analyzer_normalizes_ampersand_and_deduplicates_urls() -> None:
+    html = """
+    <script src="https://cdn.example.com/widget.js?a=1&amp;b=2"></script>
+    <script src="https://cdn.example.com/widget.js?a=1&b=2"></script>
+    """
+
+    result = ExternalServicesAnalyzer().analyze([make_page(html)])
+
+    assert result.found is True
+    assert len(result.items) == 1
+    assert result.items[0].url == "https://cdn.example.com/widget.js?a=1&b=2"
+
+
 def test_external_services_analyzer_ignores_internal_links() -> None:
     html = """
     <a href="/privacy">Privacy</a>

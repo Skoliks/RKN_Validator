@@ -4,6 +4,7 @@ from app.schemas.check import CheckMeta, CheckRequest, CheckResult
 from app.schemas.consents import ConsentItem, ConsentsResult
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormField, FormItem, FormsResult
+from app.schemas.owner_requisites import OwnerRequisiteItem, OwnerRequisitesResult
 from app.schemas.pages import CrawlResult, PageData, PageItem, PagesResult, WarningItem
 from app.schemas.policy import PolicyMatchedLink, PolicyResult
 from app.schemas.report import ReportResult
@@ -28,6 +29,8 @@ __all__ = [
     "FormItem",
     "FormsResult",
     "InsecureFormAction",
+    "OwnerRequisiteItem",
+    "OwnerRequisitesResult",
     "PageData",
     "PageItem",
     "PagesResult",

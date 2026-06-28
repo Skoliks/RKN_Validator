@@ -7,6 +7,7 @@ from app.analyzers import (
     ExternalServicesAnalyzer,
     FormAnalyzer,
     HttpsAnalyzer,
+    OwnerRequisitesAnalyzer,
     PolicyAnalyzer,
     RussianMarketAnalyzer,
 )
@@ -34,6 +35,7 @@ class CheckService:
         external_services_analyzer: ExternalServicesAnalyzer | None = None,
         auth_provider_analyzer: AuthProviderAnalyzer | None = None,
         https_analyzer: HttpsAnalyzer | None = None,
+        owner_requisites_analyzer: OwnerRequisitesAnalyzer | None = None,
         russian_market_analyzer: RussianMarketAnalyzer | None = None,
         risk_service: RiskService | None = None,
         report_service: ReportService | None = None,
@@ -47,6 +49,7 @@ class CheckService:
         self.external_services_analyzer = external_services_analyzer or ExternalServicesAnalyzer()
         self.auth_provider_analyzer = auth_provider_analyzer or AuthProviderAnalyzer()
         self.https_analyzer = https_analyzer or HttpsAnalyzer()
+        self.owner_requisites_analyzer = owner_requisites_analyzer or OwnerRequisitesAnalyzer()
         self.russian_market_analyzer = russian_market_analyzer or RussianMarketAnalyzer()
         self.risk_service = risk_service or RiskService()
         self.report_service = report_service or ReportService()
@@ -97,6 +100,7 @@ class CheckService:
         external_services = self.external_services_analyzer.analyze(pages_data)
         authentication = self.auth_provider_analyzer.analyze(pages_data)
         security = self.https_analyzer.analyze(pages_data, forms)
+        owner_requisites = self.owner_requisites_analyzer.analyze(pages_data)
         russian_market = self.russian_market_analyzer.analyze(pages_data)
 
         status = "partial" if crawl.warnings else "completed"
@@ -115,6 +119,7 @@ class CheckService:
             check=check_meta,
             availability=availability,
             pages=self._to_pages_result(pages_data),
+            owner_requisites=owner_requisites,
             russian_market=russian_market,
             forms=forms,
             consents=consents,

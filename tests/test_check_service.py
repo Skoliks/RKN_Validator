@@ -164,6 +164,34 @@ async def test_check_service_site_with_google_tag_manager() -> None:
     assert result.risk_assessment.level == "low"
 
 
+@pytest.mark.asyncio
+async def test_check_service_includes_owner_requisites() -> None:
+    service = make_service(
+        crawl=CrawlResult(
+            pages=[
+                make_page(
+                    """
+                    <footer>
+                      ООО "ИнфоКом"
+                      ИНН 2801121089
+                      ОГРН 1072801006530
+                    </footer>
+                    """
+                )
+            ]
+        )
+    )
+
+    result = await service.check("example.ru")
+
+    assert result.owner_requisites is not None
+    assert result.owner_requisites.found is True
+    assert result.owner_requisites.organization_name == 'ООО "ИнфоКом"'
+    assert result.owner_requisites.inn == "2801121089"
+    assert result.owner_requisites.ogrn == "1072801006530"
+    assert "<footer>" not in str(result.model_dump())
+
+
 def test_check_result_pages_do_not_contain_html() -> None:
     page = make_page("<form><input name='phone'></form>")
     result = CheckService()._to_pages_result([page])

@@ -1,4 +1,5 @@
 import re
+from html import unescape
 from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup
@@ -103,13 +104,16 @@ class ExternalServicesAnalyzer:
     def _build_url(self, tag: Tag, attr_name: str, base_url: str) -> str:
         value = tag.get(attr_name)
         raw_url = value.strip() if isinstance(value, str) else ""
-        return urljoin(base_url, raw_url)
+        return self._normalize_url(urljoin(base_url, raw_url))
 
     def _extract_fallback_urls(self, html: str, base_url: str) -> list[str]:
         return [
-            urljoin(base_url, match.group(1).strip())
+            self._normalize_url(urljoin(base_url, match.group(1).strip()))
             for match in self.fallback_url_pattern.finditer(html)
         ]
+
+    def _normalize_url(self, url: str) -> str:
+        return unescape(url).strip()
 
     def _extract_domain(self, url: str) -> str | None:
         parsed = urlsplit(url)

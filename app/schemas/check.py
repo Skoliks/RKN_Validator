@@ -8,6 +8,7 @@ from app.schemas.availability import AvailabilityInfo
 from app.schemas.consents import ConsentsResult
 from app.schemas.external_services import ExternalServicesResult
 from app.schemas.forms import FormsResult
+from app.schemas.owner_requisites import OwnerRequisitesResult
 from app.schemas.pages import PagesResult
 from app.schemas.policy import PolicyResult
 from app.schemas.report import ReportResult
@@ -40,6 +41,7 @@ class CheckResult(BaseModel):
     check: CheckMeta
     availability: AvailabilityInfo | None = None
     pages: PagesResult | None = None
+    owner_requisites: OwnerRequisitesResult | None = None
     russian_market: RussianMarketResult | None = None
     forms: FormsResult | None = None
     consents: ConsentsResult | None = None
