@@ -2,15 +2,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "RKN Validator"
+    app_name: str = "Site Compliance Checker"
+    app_env: str = "local"
     app_version: str = "0.1.0"
     host: str = "127.0.0.1"
     port: int = 8000
     reload: bool = False
+    log_level: str = "INFO"
+    max_pages_per_site: int = 5
+    request_timeout_seconds: float = 10
+    max_requests_per_site: int = 15
 
     model_config = SettingsConfigDict(
         env_file=".env",
-        env_prefix="APP_",
         extra="ignore",
     )
 

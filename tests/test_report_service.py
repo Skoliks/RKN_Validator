@@ -5,7 +5,7 @@ from app.schemas.check import CheckMeta, CheckResult
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormField, FormItem, FormsResult
 from app.schemas.pages import PageItem, PagesResult
-from app.schemas.policy import PolicyResult
+from app.schemas.policy import PolicyMatchedLink, PolicyResult
 from app.schemas.report import ReportResult
 from app.schemas.risk import RiskAssessment, RiskFactor
 from app.schemas.site import SiteInfo
@@ -39,12 +39,14 @@ def make_check_result(
         ),
         availability=availability or AvailabilityInfo(available=True, status_code=200),
         pages=PagesResult(
-            total_found=1,
-            total_checked=1,
+            total_found=4,
+            total_checked=4,
             items=[PageItem(url="https://example.ru", status_code=200)],
         ),
         forms=forms if forms is not None else FormsResult(),
-        policy=policy if policy is not None else PolicyResult(found=True, policy_url="https://example.ru/privacy"),
+        policy=policy
+        if policy is not None
+        else PolicyResult(found=True, policy_url="https://example.ru/privacy"),
         external_services=external_services or ExternalServicesResult(),
         risk_assessment=RiskAssessment(
             total_score=risk_score,
@@ -60,7 +62,8 @@ def test_report_low_risk() -> None:
     assert isinstance(report, ReportResult)
     assert report.llm_generated is False
     assert "периодически повторять проверку" in report.recommendation.lower()
-    assert "потенциального риска low" in report.summary
+    assert "низкий уровень потенциального риска" in report.summary
+    assert "Проверено 4 страницы" in report.summary
 
 
 def test_report_medium_risk() -> None:
@@ -90,7 +93,8 @@ def test_report_medium_risk() -> None:
     )
 
     assert "вручную проверить замечания" in report.recommendation.lower()
-    assert "foreign_analytics_detected" in report.summary
+    assert "foreign_analytics_detected" not in report.summary
+    assert "аналитические" in report.summary.lower()
 
 
 def test_report_high_risk() -> None:
@@ -128,38 +132,42 @@ def test_report_high_risk() -> None:
 
 
 def test_report_failed_not_a_url() -> None:
+    message = "Не понял запрос, пожалуйста отправьте ссылку на сайт для проверки."
     result = make_check_result(
         status="failed",
         availability=AvailabilityInfo(
             available=False,
             error_type="not_a_url",
-            message="Не понял ваш запрос, пожалуйста отправьте ссылку на сайт для проверки.",
+            message=message,
         ),
     )
 
     report = ReportService().build(result)
 
-    assert "Не понял ваш запрос" in report.summary
+    assert message in report.summary
     assert report.llm_generated is False
 
 
 def test_report_failed_site_unavailable() -> None:
+    message = "Сайт недоступен, поэтому проверку выполнить не удалось."
     result = make_check_result(
         status="failed",
         availability=AvailabilityInfo(
             available=False,
             error_type="site_unavailable",
-            message="Сайт недоступен, поэтому проверку выполнить не удалось.",
+            message=message,
         ),
     )
 
     report = ReportService().build(result)
 
-    assert "Сайт недоступен, поэтому проверку выполнить не удалось." in report.summary
+    assert message in report.summary
 
 
 def test_report_partial_check() -> None:
-    report = ReportService().build(make_check_result(status="partial", risk_level="medium", risk_score=35))
+    report = ReportService().build(
+        make_check_result(status="partial", risk_level="medium", risk_score=35)
+    )
 
     assert "Проверка выполнена частично" in report.summary
 
@@ -169,3 +177,39 @@ def test_report_does_not_contain_forbidden_legal_phrase() -> None:
 
     assert "сайт нарушает закон" not in report.summary.lower()
     assert "сайт нарушает закон" not in report.recommendation.lower()
+
+
+def test_report_translates_low_to_russian() -> None:
+    report = ReportService().build(make_check_result(risk_level="low"))
+
+    assert "низкий" in report.summary
+
+
+def test_report_does_not_say_policy_missing_when_privacy_document_found() -> None:
+    report = ReportService().build(
+        make_check_result(
+            policy=PolicyResult(
+                found=True,
+                policy_url="https://infocom.io/waba-privacy-ru",
+                matched_links=[
+                    PolicyMatchedLink(
+                        page_url="https://infocom.io",
+                        href="https://infocom.io/waba-privacy-ru",
+                        text="Условия конфиденциальности",
+                    )
+                ],
+            )
+        )
+    )
+
+    assert "не найдена" not in report.summary.lower()
+
+
+def test_report_uses_cautious_privacy_document_wording() -> None:
+    report = ReportService().build(make_check_result())
+
+    assert (
+        "Найдена ссылка на документ, связанный с конфиденциальностью "
+        "и обработкой персональной информации."
+    ) in report.summary
+    assert "Найдена ссылка на политику обработки персональных данных" not in report.summary

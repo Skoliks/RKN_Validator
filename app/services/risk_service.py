@@ -1,3 +1,5 @@
+from html import unescape
+
 from app.schemas.authentication import AuthenticationResult
 from app.schemas.check import CheckMeta
 from app.schemas.consents import ConsentsResult
@@ -10,6 +12,7 @@ from app.schemas.security import SecurityResult
 
 class RiskService:
     analytics_types = {"analytics", "tag_manager"}
+    link_only_types = {"social_network", "messenger"}
 
     def assess(
         self,
@@ -85,10 +88,10 @@ class RiskService:
         if foreign_other:
             factors.append(
                 self._factor(
-                    code="foreign_service_detected",
+                    code="external_resource_detected",
                     level="medium",
                     score=20,
-                    message="Обнаружены внешние сервисы, не относящиеся к аналитике.",
+                    message="Обнаружены подключаемые внешние ресурсы, не относящиеся к аналитике.",
                     evidence=self._service_evidence(foreign_other),
                 )
             )
@@ -143,7 +146,7 @@ class RiskService:
 
         total_score = min(sum(factor.score for factor in factors), 100)
         level = self._level_for_score(total_score)
-        level = self._apply_escalation_rules(level, factors)
+        level = self._apply_escalation_rules(level, factors, has_personal_data_forms)
 
         return RiskAssessment(total_score=total_score, level=level, factors=factors)
 
@@ -192,11 +195,20 @@ class RiskService:
         seen: set[tuple[str | None, str | None, str | None]] = set()
 
         for item in external_services.items:
-            key = (item.provider, item.url, item.page_url)
+            key = (
+                item.provider,
+                self._normalize_evidence_url(item.url),
+                self._normalize_evidence_url(item.page_url),
+            )
             if key in seen:
                 continue
 
             seen.add(key)
+            if not item.foreign:
+                continue
+            if item.service_type in self.link_only_types:
+                continue
+
             if item.service_type in self.analytics_types:
                 analytics.append(item)
             else:
@@ -205,7 +217,22 @@ class RiskService:
         return analytics, other
 
     def _service_evidence(self, items: list[ExternalServiceItem]) -> list[str]:
-        return [item.url or item.provider or item.service_type for item in items]
+        evidence: list[str] = []
+        seen: set[str] = set()
+        for item in items:
+            value = self._normalize_evidence_url(item.url) or item.provider or item.service_type
+            if not value or value in seen:
+                continue
+
+            seen.add(value)
+            evidence.append(value)
+
+        return evidence
+
+    def _normalize_evidence_url(self, value: str | None) -> str | None:
+        if not value:
+            return value
+        return unescape(value).strip()
 
     def _insecure_personal_forms(
         self,
@@ -240,7 +267,12 @@ class RiskService:
             return "medium"
         return "high"
 
-    def _apply_escalation_rules(self, level: str, factors: list[RiskFactor]) -> str:
+    def _apply_escalation_rules(
+        self,
+        level: str,
+        factors: list[RiskFactor],
+        has_personal_data_forms: bool,
+    ) -> str:
         factor_codes = {factor.code for factor in factors}
         high_conditions = (
             {
@@ -253,6 +285,12 @@ class RiskService:
         )
         if any(high_conditions):
             return "high"
+        if (
+            level == "high"
+            and not has_personal_data_forms
+            and "foreign_auth_detected" not in factor_codes
+        ):
+            return "medium"
         return level
 
     def _factor(

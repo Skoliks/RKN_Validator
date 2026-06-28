@@ -10,14 +10,21 @@ from app.schemas.pages import PageData
 
 class ExternalServicesAnalyzer:
     known_services = {
-        "googletagmanager.com": ("analytics", "Google Tag Manager"),
-        "google-analytics.com": ("analytics", "Google Analytics"),
-        "mc.yandex.ru": ("analytics", "Yandex Metrika"),
-        "metrika.yandex.ru": ("analytics", "Yandex Metrika"),
-        "connect.facebook.net": ("social", "Facebook"),
-        "facebook.com": ("social", "Facebook"),
-        "doubleclick.net": ("advertising", "DoubleClick"),
-        "vk.com": ("social", "VK"),
+        "googletagmanager.com": ("analytics", "Google Tag Manager", True),
+        "google-analytics.com": ("analytics", "Google Analytics", True),
+        "mc.yandex.ru": ("analytics", "Yandex Metrika", False),
+        "metrika.yandex.ru": ("analytics", "Yandex Metrika", False),
+        "yastatic.net": ("cdn", "Yandex", False),
+        "unpkg.com": ("cdn", "UNPKG", True),
+        "connect.facebook.net": ("social_network", "Facebook", True),
+        "facebook.com": ("social_network", "Facebook", True),
+        "instagram.com": ("social_network", "Instagram", True),
+        "wa.me": ("messenger", "WhatsApp", True),
+        "doubleclick.net": ("advertising", "DoubleClick", True),
+        "vk.com": ("social_network", "VK", False),
+        "bitrix24.ru": ("crm_widget", "Bitrix24", False),
+        "bitrix24.net": ("crm_widget", "Bitrix24", False),
+        "bitrix24.com": ("crm_widget", "Bitrix24", True),
     }
     selectors = (
         ("script", "src"),
@@ -54,7 +61,7 @@ class ExternalServicesAnalyzer:
                     if not domain or domain == page_domain:
                         continue
 
-                    service_type, provider = self._classify_service(domain)
+                    service_type, provider, foreign = self._classify_service(domain)
                     key = (domain, url, page_url)
                     if key in seen:
                         continue
@@ -66,6 +73,7 @@ class ExternalServicesAnalyzer:
                             provider=provider,
                             url=url,
                             page_url=page_url,
+                            foreign=foreign,
                         )
                     )
 
@@ -74,7 +82,7 @@ class ExternalServicesAnalyzer:
                 if not domain or domain == page_domain:
                     continue
 
-                service_type, provider = self._classify_service(domain)
+                service_type, provider, foreign = self._classify_service(domain)
                 key = (domain, url, page_url)
                 if key in seen:
                     continue
@@ -86,6 +94,7 @@ class ExternalServicesAnalyzer:
                         provider=provider,
                         url=url,
                         page_url=page_url,
+                        foreign=foreign,
                     )
                 )
 
@@ -108,9 +117,9 @@ class ExternalServicesAnalyzer:
             return None
         return parsed.hostname.lower().rstrip(".") if parsed.hostname else None
 
-    def _classify_service(self, domain: str) -> tuple[str, str | None]:
+    def _classify_service(self, domain: str) -> tuple[str, str | None, bool]:
         for known_domain, service_info in self.known_services.items():
             if domain == known_domain or domain.endswith(f".{known_domain}"):
                 return service_info
 
-        return "external_link", None
+        return "external_link", None, True

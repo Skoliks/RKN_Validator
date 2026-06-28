@@ -124,7 +124,110 @@ def test_google_analytics_with_documents_is_medium_without_duplicate_service_fac
 
     assert result.level == "medium"
     assert "foreign_analytics_detected" in factor_codes(result)
-    assert "foreign_service_detected" not in factor_codes(result)
+    assert "external_resource_detected" not in factor_codes(result)
+
+
+def test_yandex_metrika_does_not_add_foreign_analytics_factor() -> None:
+    result = RiskService().assess(
+        forms=FormsResult(),
+        external_services=ExternalServicesResult(
+            found=True,
+            items=[
+                ExternalServiceItem(
+                    service_type="analytics",
+                    provider="Yandex Metrika",
+                    url="https://mc.yandex.ru/watch/12345",
+                    page_url="https://example.ru",
+                    foreign=False,
+                )
+            ],
+        ),
+        security=SecurityResult(https_enabled=True),
+        check=make_check(),
+    )
+
+    assert result.level == "low"
+    assert result.total_score == 0
+    assert "foreign_analytics_detected" not in factor_codes(result)
+
+
+def test_social_network_links_without_forms_do_not_escalate_to_high() -> None:
+    result = RiskService().assess(
+        forms=FormsResult(),
+        external_services=ExternalServicesResult(
+            found=True,
+            items=[
+                ExternalServiceItem(
+                    service_type="social_network",
+                    provider="Facebook",
+                    url="https://facebook.com/company",
+                    page_url="https://example.ru",
+                ),
+                ExternalServiceItem(
+                    service_type="social_network",
+                    provider="Instagram",
+                    url="https://instagram.com/company",
+                    page_url="https://example.ru",
+                ),
+            ],
+        ),
+        authentication=AuthenticationResult(),
+        security=SecurityResult(https_enabled=True),
+        check=make_check(),
+    )
+
+    assert result.level != "high"
+    assert "foreign_auth_detected" not in factor_codes(result)
+    assert "external_resource_detected" not in factor_codes(result)
+
+
+def test_facebook_company_link_is_not_external_resource_factor() -> None:
+    result = RiskService().assess(
+        forms=FormsResult(),
+        external_services=ExternalServicesResult(
+            found=True,
+            items=[
+                ExternalServiceItem(
+                    service_type="social_network",
+                    provider="Facebook",
+                    url="https://facebook.com/company",
+                    page_url="https://example.ru",
+                )
+            ],
+        ),
+        authentication=AuthenticationResult(),
+        security=SecurityResult(https_enabled=True),
+        check=make_check(),
+    )
+
+    assert "external_resource_detected" not in factor_codes(result)
+
+
+def test_service_evidence_does_not_contain_duplicates_after_html_unescape() -> None:
+    result = RiskService().assess(
+        external_services=ExternalServicesResult(
+            found=True,
+            items=[
+                ExternalServiceItem(
+                    service_type="external_link",
+                    provider="Partner",
+                    url="https://partner.example.com/widget?a=1&amp;b=2",
+                    page_url="https://example.ru",
+                ),
+                ExternalServiceItem(
+                    service_type="external_link",
+                    provider="Partner",
+                    url="https://partner.example.com/widget?a=1&b=2",
+                    page_url="https://example.ru",
+                ),
+            ],
+        ),
+        security=SecurityResult(https_enabled=True),
+        check=make_check(),
+    )
+
+    factor = next(factor for factor in result.factors if factor.code == "external_resource_detected")
+    assert factor.evidence == ["https://partner.example.com/widget?a=1&b=2"]
 
 
 def test_foreign_auth_escalates_to_high() -> None:

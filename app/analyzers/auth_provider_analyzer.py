@@ -13,13 +13,32 @@ class AuthProviderAnalyzer:
             "войти через google",
             "sign in with google",
             "continue with google",
+            "login with google",
+        ),
+        "Facebook": (
+            "sign in with facebook",
+            "continue with facebook",
+            "login with facebook",
+            "log in with facebook",
         ),
     }
     domain_markers = {
         "accounts.google.com": "Google",
         "appleid.apple.com": "Apple",
-        "facebook.com": "Facebook",
         "login.microsoftonline.com": "Microsoft",
+    }
+    auth_path_markers = (
+        "login",
+        "oauth",
+        "authorize",
+        "signin",
+        "sign-in",
+        "signup",
+        "sso",
+    )
+    auth_query_markers = ("oauth", "client_id", "redirect_uri", "response_type", "scope")
+    provider_auth_domains = {
+        "facebook.com": "Facebook",
     }
 
     def analyze(self, pages: list[PageData]) -> AuthenticationResult:
@@ -67,6 +86,21 @@ class AuthProviderAnalyzer:
         for marker, provider in self.domain_markers.items():
             if domain == marker or domain.endswith(f".{marker}"):
                 self._append_provider(providers, seen, provider, page_url, url)
+                return
+
+        for marker, provider in self.provider_auth_domains.items():
+            if (
+                domain == marker or domain.endswith(f".{marker}")
+            ) and self._has_auth_intent(url):
+                self._append_provider(providers, seen, provider, page_url, url)
+
+    def _has_auth_intent(self, url: str) -> bool:
+        parsed = urlsplit(url)
+        path = parsed.path.lower()
+        query = parsed.query.lower()
+        return any(marker in path for marker in self.auth_path_markers) or any(
+            marker in query for marker in self.auth_query_markers
+        )
 
     def _append_provider(
         self,

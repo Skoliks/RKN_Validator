@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 import httpx
 
+from app.core.config import settings
+
 
 @dataclass(frozen=True)
 class HttpResponse:
@@ -13,10 +15,10 @@ class HttpResponse:
 class HttpClient:
     def __init__(
         self,
-        timeout: float = 10.0,
+        timeout: float | None = None,
         user_agent: str = "RKNValidator/0.1",
     ) -> None:
-        self.timeout = timeout
+        self.timeout = timeout if timeout is not None else settings.request_timeout_seconds
         self.user_agent = user_agent
 
     async def get(self, url: str) -> HttpResponse:

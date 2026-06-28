@@ -23,3 +23,32 @@ def test_auth_provider_analyzer_detects_google_accounts_domain() -> None:
     assert result.found is True
     assert result.providers[0].provider == "Google"
     assert result.providers[0].url == "https://accounts.google.com/o/oauth2/v2/auth"
+
+
+def test_auth_provider_analyzer_ignores_regular_facebook_company_link() -> None:
+    page = make_page('<a href="https://facebook.com/company">Facebook</a>')
+
+    result = AuthProviderAnalyzer().analyze([page])
+
+    assert result.found is False
+    assert result.providers == []
+
+
+def test_auth_provider_analyzer_detects_login_with_facebook_text() -> None:
+    page = make_page("<button>Login with Facebook</button>")
+
+    result = AuthProviderAnalyzer().analyze([page])
+
+    assert result.found is True
+    assert result.providers[0].provider == "Facebook"
+
+
+def test_auth_provider_analyzer_detects_facebook_oauth_link() -> None:
+    page = make_page(
+        '<a href="https://facebook.com/dialog/oauth?client_id=123">Login</a>'
+    )
+
+    result = AuthProviderAnalyzer().analyze([page])
+
+    assert result.found is True
+    assert result.providers[0].provider == "Facebook"

@@ -2,6 +2,7 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 
+from app.core.config import settings
 from app.infrastructure.http_client import HttpClient, HttpResponse
 from app.schemas.pages import CrawlResult, PageData, WarningItem
 from app.schemas.site import SiteInfo
@@ -19,9 +20,9 @@ class CrawlService:
         "register",
     )
 
-    def __init__(self, http_client: HttpClient | None = None, max_pages: int = 5) -> None:
+    def __init__(self, http_client: HttpClient | None = None, max_pages: int | None = None) -> None:
         self.http_client = http_client or HttpClient()
-        self.max_pages = max_pages
+        self.max_pages = max_pages if max_pages is not None else settings.max_pages_per_site
 
     async def crawl(self, site: SiteInfo) -> CrawlResult:
         pages: list[PageData] = []

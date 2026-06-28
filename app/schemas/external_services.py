@@ -8,6 +8,7 @@ class ExternalServiceItem(BaseModel):
     provider: str | None = None
     url: str | None = None
     page_url: str | None = None
+    foreign: bool = True
 
 
 class ExternalServicesResult(BaseModel):

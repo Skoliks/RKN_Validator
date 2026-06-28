@@ -16,3 +16,17 @@ def test_https_analyzer_detects_http_form_action() -> None:
     assert result.https_enabled is True
     assert len(result.insecure_form_actions) == 1
     assert result.insecure_form_actions[0].action == "http://example.ru/send"
+
+
+def test_https_analyzer_detects_yastatic_http_mixed_content_on_https_page() -> None:
+    page = make_page(
+        '<script src="http://yastatic.net/jquery/3.7.1/jquery.min.js"></script>',
+        url="https://example.ru",
+    )
+    forms = FormAnalyzer().analyze([page])
+
+    result = HttpsAnalyzer().analyze([page], forms)
+
+    assert result.has_mixed_content is True
+    assert len(result.mixed_content_items) == 1
+    assert result.mixed_content_items[0].url == "http://yastatic.net/jquery/3.7.1/jquery.min.js"
