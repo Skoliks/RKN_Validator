@@ -36,12 +36,15 @@ Docker, README и финальная проверка MVP.
 ## Iteration 12
 OwnerRequisitesAnalyzer: отдельное извлечение реквизитов владельца сайта из уже загруженных страниц без внешних API.
 
+## Iteration 13
+DomainComplianceAnalyzer: определение применимости ручной проверки идентификации администратора через ЕСИА по зонам `.ru`, `.рф`, `.su` без whois, внешних API и автоматического повышения риска.
+
 ## Future iterations after MVP
 
 These items are future scope only. They must not expand the current MVP and must follow `PROJECT_RULES.md` layering and tooling constraints.
 
 - OwnerRequisitesAnalyzer improvements: improve completeness scoring, legal-address confidence, and privacy-contact context.
-- DomainComplianceAnalyzer: classify `.ru`, `.рф`, `.su` domains and produce manual follow-up items for administrator/registrar identification.
+- DomainComplianceAnalyzer improvements: add optional manual evidence fields for registrar and administrator checks without whois or external APIs.
 - CookieAnalyzer: detect cookie banners, accept/decline controls, and optional cookie or tracking scripts that appear before consent.
 - AdvertisingAnalyzer: detect advertising labels, advertiser mentions, and `erid` tokens.
 - AccessibilityAnalyzer: perform lightweight static accessibility checks such as missing alt text, weak link text, heading structure, and language attributes.

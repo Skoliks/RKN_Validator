@@ -2,6 +2,7 @@ from app.schemas.authentication import AuthProviderItem, AuthenticationResult
 from app.schemas.availability import AvailabilityInfo
 from app.schemas.check import CheckMeta, CheckRequest, CheckResult
 from app.schemas.consents import ConsentItem, ConsentsResult
+from app.schemas.domain_compliance import DomainComplianceResult
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormField, FormItem, FormsResult
 from app.schemas.owner_requisites import OwnerRequisiteItem, OwnerRequisitesResult
@@ -23,6 +24,7 @@ __all__ = [
     "ConsentItem",
     "ConsentsResult",
     "CrawlResult",
+    "DomainComplianceResult",
     "ExternalServiceItem",
     "ExternalServicesResult",
     "FormField",

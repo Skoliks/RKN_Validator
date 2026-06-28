@@ -10,7 +10,7 @@ The product remains a technical pre-check tool. It must not present findings as 
 
 For domains in `.ru`, `.рф`, and `.su`, the compliance scope includes identifying whether the domain zone is covered by Russian domain administrator identification requirements. The relevant operational risks include inability to register, renew, transfer, change administrator, or update NS delegation if required identification is not completed.
 
-Current MVP implication: domain zone can be detected technically, but administrator identity, registrar account status, ESIA identification status, and ownership history require manual or future analyzer support.
+Current MVP implication: `DomainComplianceAnalyzer` detects whether the domain zone is `.ru`, `.рф`, or `.su` and adds a manual-check recommendation for ESIA administrator identification. Administrator identity, registrar account status, actual ESIA identification status, and ownership history still require manual verification and are not checked by the MVP.
 
 ### User Authorization
 

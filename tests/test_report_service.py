@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from app.schemas.availability import AvailabilityInfo
 from app.schemas.check import CheckMeta, CheckResult
+from app.schemas.domain_compliance import DomainComplianceResult
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormField, FormItem, FormsResult
 from app.schemas.owner_requisites import OwnerRequisitesResult
@@ -20,6 +21,7 @@ def make_check_result(
     risk_score: int = 0,
     factors: list[RiskFactor] | None = None,
     availability: AvailabilityInfo | None = None,
+    domain_compliance: DomainComplianceResult | None = None,
     forms: FormsResult | None = None,
     owner_requisites: OwnerRequisitesResult | None = None,
     policy: PolicyResult | None = None,
@@ -42,6 +44,7 @@ def make_check_result(
             interface="api",
         ),
         availability=availability or AvailabilityInfo(available=True, status_code=200),
+        domain_compliance=domain_compliance,
         pages=PagesResult(
             total_found=4,
             total_checked=4,
@@ -219,6 +222,42 @@ def test_report_uses_cautious_privacy_document_wording() -> None:
         "и обработкой персональной информации."
     ) in report.summary
     assert "Найдена ссылка на политику обработки персональных данных" not in report.summary
+
+
+def test_report_mentions_applicable_domain_compliance() -> None:
+    report = ReportService().build(
+        make_check_result(
+            domain_compliance=DomainComplianceResult(
+                zone="ru",
+                esia_identification_required=True,
+                applies_to_domain_zone=True,
+                manual_check_required=True,
+                status="applicable_requires_manual_check",
+            )
+        )
+    )
+
+    assert (
+        "Домен находится в зоне, для которой требуется ручная проверка "
+        "идентификации администратора через ЕСИА."
+    ) in report.summary
+    assert "идентификация не пройдена" not in report.summary.lower()
+
+
+def test_report_mentions_not_applicable_domain_compliance() -> None:
+    report = ReportService().build(
+        make_check_result(
+            domain_compliance=DomainComplianceResult(
+                zone="io",
+                status="not_applicable",
+            )
+        )
+    )
+
+    assert (
+        "Требование идентификации администратора через ЕСИА к данной доменной зоне "
+        "не применяется."
+    ) in report.summary
 
 
 def test_report_mentions_found_owner_inn_and_ogrn() -> None:

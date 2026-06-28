@@ -77,6 +77,16 @@ class ReportService:
         elif check_result.forms is not None:
             sentences.append("На проверенных страницах формы сбора данных не найдены.")
 
+        if check_result.domain_compliance:
+            if check_result.domain_compliance.applies_to_domain_zone:
+                sentences.append(
+                    "Домен находится в зоне, для которой требуется ручная проверка идентификации администратора через ЕСИА."
+                )
+            elif check_result.domain_compliance.status == "not_applicable":
+                sentences.append(
+                    "Требование идентификации администратора через ЕСИА к данной доменной зоне не применяется."
+                )
+
         if check_result.owner_requisites and check_result.owner_requisites.found:
             if check_result.owner_requisites.inn and check_result.owner_requisites.ogrn:
                 sentences.append("На проверенных страницах найдены ИНН и ОГРН владельца сайта.")

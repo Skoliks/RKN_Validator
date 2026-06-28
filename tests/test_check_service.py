@@ -192,6 +192,31 @@ async def test_check_service_includes_owner_requisites() -> None:
     assert "<footer>" not in str(result.model_dump())
 
 
+@pytest.mark.asyncio
+async def test_check_service_includes_domain_compliance_for_ru_zone() -> None:
+    result = await make_service().check("https://example.ru")
+
+    assert result.domain_compliance is not None
+    assert result.domain_compliance.zone == "ru"
+    assert result.domain_compliance.applies_to_domain_zone is True
+    assert result.domain_compliance.esia_identification_required is True
+    assert result.domain_compliance.status == "applicable_requires_manual_check"
+    assert result.risk_assessment is not None
+    assert result.risk_assessment.total_score == 0
+    assert result.risk_assessment.factors == []
+
+
+@pytest.mark.asyncio
+async def test_check_service_includes_domain_compliance_for_io_zone() -> None:
+    result = await make_service().check("https://infocom.io")
+
+    assert result.domain_compliance is not None
+    assert result.domain_compliance.zone == "io"
+    assert result.domain_compliance.applies_to_domain_zone is False
+    assert result.domain_compliance.esia_identification_required is False
+    assert result.domain_compliance.status == "not_applicable"
+
+
 def test_check_result_pages_do_not_contain_html() -> None:
     page = make_page("<form><input name='phone'></form>")
     result = CheckService()._to_pages_result([page])

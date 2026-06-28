@@ -1,5 +1,6 @@
 from app.analyzers.auth_provider_analyzer import AuthProviderAnalyzer
 from app.analyzers.consent_analyzer import ConsentAnalyzer
+from app.analyzers.domain_compliance_analyzer import DomainComplianceAnalyzer
 from app.analyzers.external_services_analyzer import ExternalServicesAnalyzer
 from app.analyzers.form_analyzer import FormAnalyzer
 from app.analyzers.https_analyzer import HttpsAnalyzer
@@ -10,6 +11,7 @@ from app.analyzers.russian_market_analyzer import RussianMarketAnalyzer
 __all__ = [
     "AuthProviderAnalyzer",
     "ConsentAnalyzer",
+    "DomainComplianceAnalyzer",
     "ExternalServicesAnalyzer",
     "FormAnalyzer",
     "HttpsAnalyzer",

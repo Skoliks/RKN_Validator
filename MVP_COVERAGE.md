@@ -4,8 +4,8 @@ This table maps the extended compliance scope to the current MVP implementation.
 
 | Requirement | Current MVP coverage | Current module | What to add | Automatability |
 |---|---|---|---|---|
-| Domain zone identification for `.ru`, `.рф`, `.su` | Partially | `UrlService`, `SiteInfo` | `DomainComplianceAnalyzer` to explicitly classify covered zones and explain ESIA-identification follow-up | High |
-| Domain administrator / registrar identification status | No | None | Manual checklist fields or future domain evidence workflow; no external API in MVP | Manual |
+| Domain zone identification for `.ru`, `.рф`, `.su` | Yes | `UrlService`, `SiteInfo`, `DomainComplianceAnalyzer` | Keep wording cautious and manual-review oriented | High |
+| Domain administrator / registrar identification status | No | `DomainComplianceAnalyzer` only explains applicability by zone | Manual checklist fields or future domain evidence workflow; no external API or whois in MVP | Manual |
 | User authorization detection | Partially | `AuthProviderAnalyzer` | Broaden provider patterns, separate login widgets from ordinary links, add Russian allowed-provider classification | Medium |
 | Foreign OAuth / social login risk signals | Partially | `AuthProviderAnalyzer`, `RiskService` | Add provider allowlist/denylist and clearer evidence types | Medium |
 | Personal data form detection | Yes | `FormAnalyzer` | Improve field taxonomy and multi-step form hints | High |

@@ -4,6 +4,7 @@ from time import perf_counter
 from app.analyzers import (
     AuthProviderAnalyzer,
     ConsentAnalyzer,
+    DomainComplianceAnalyzer,
     ExternalServicesAnalyzer,
     FormAnalyzer,
     HttpsAnalyzer,
@@ -14,6 +15,7 @@ from app.analyzers import (
 from app.core.exceptions import InvalidUrlError, InvalidUserInputError
 from app.schemas.availability import AvailabilityInfo
 from app.schemas.check import CheckMeta, CheckResult
+from app.schemas.domain_compliance import DomainComplianceResult
 from app.schemas.pages import PageData, PageItem, PagesResult
 from app.schemas.site import SiteInfo
 from app.services.availability_service import AvailabilityService, UNAVAILABLE_MESSAGE
@@ -32,6 +34,7 @@ class CheckService:
         form_analyzer: FormAnalyzer | None = None,
         consent_analyzer: ConsentAnalyzer | None = None,
         policy_analyzer: PolicyAnalyzer | None = None,
+        domain_compliance_analyzer: DomainComplianceAnalyzer | None = None,
         external_services_analyzer: ExternalServicesAnalyzer | None = None,
         auth_provider_analyzer: AuthProviderAnalyzer | None = None,
         https_analyzer: HttpsAnalyzer | None = None,
@@ -46,6 +49,7 @@ class CheckService:
         self.form_analyzer = form_analyzer or FormAnalyzer()
         self.consent_analyzer = consent_analyzer or ConsentAnalyzer()
         self.policy_analyzer = policy_analyzer or PolicyAnalyzer()
+        self.domain_compliance_analyzer = domain_compliance_analyzer or DomainComplianceAnalyzer()
         self.external_services_analyzer = external_services_analyzer or ExternalServicesAnalyzer()
         self.auth_provider_analyzer = auth_provider_analyzer or AuthProviderAnalyzer()
         self.https_analyzer = https_analyzer or HttpsAnalyzer()
@@ -75,6 +79,7 @@ class CheckService:
             )
 
         availability = await self.availability_service.check(site)
+        domain_compliance = self.domain_compliance_analyzer.analyze(site)
         if not availability.available:
             failed_availability = AvailabilityInfo(
                 available=False,
@@ -89,6 +94,7 @@ class CheckService:
                 started_at=started_at,
                 site=site,
                 availability=failed_availability,
+                domain_compliance=domain_compliance,
             )
 
         crawl = await self.crawl_service.crawl(site)
@@ -118,6 +124,7 @@ class CheckService:
             site=site,
             check=check_meta,
             availability=availability,
+            domain_compliance=domain_compliance,
             pages=self._to_pages_result(pages_data),
             owner_requisites=owner_requisites,
             russian_market=russian_market,
@@ -140,6 +147,7 @@ class CheckService:
         started_at: float,
         site: SiteInfo | None = None,
         availability: AvailabilityInfo | None = None,
+        domain_compliance: DomainComplianceResult | None = None,
     ) -> CheckResult:
         failed_site = site or SiteInfo(
             original_input=user_url,
@@ -157,6 +165,7 @@ class CheckService:
             site=failed_site,
             check=self._check_meta(status="failed", started_at=started_at),
             availability=failed_availability,
+            domain_compliance=domain_compliance,
         )
         report = self.report_service.build(result)
         return result.model_copy(update={"report": report})
