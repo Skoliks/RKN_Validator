@@ -24,6 +24,7 @@ MVP backend-сервис для первичной технической про
 - httpx
 - BeautifulSoup4 + lxml
 - tldextract
+- Playwright (optional browser check)
 - pytest, pytest-asyncio, pytest-httpx
 - Docker / Docker Compose
 
@@ -55,6 +56,30 @@ docker compose up --build
 ```powershell
 docker compose down
 ```
+
+## Browser Check With Playwright
+
+Браузерная проверка выключена по умолчанию и не меняет обычный `httpx`-пайплайн.
+
+Установка Python-пакета:
+
+```powershell
+venv\Scripts\python.exe -m pip install playwright
+```
+
+Установка Chromium для Playwright выполняется отдельно:
+
+```powershell
+venv\Scripts\python.exe -m playwright install chromium
+```
+
+Включение:
+
+```env
+ENABLE_BROWSER_CHECK=true
+```
+
+В этой итерации `BrowserClient` только собирает cookies после загрузки страницы, сетевые запросы и ошибки консоли. Он не делает юридический вывод, не считает риск, не кликает по баннерам, не отправляет формы и не делает скриншоты. Полноценный `CookieAnalyzer` будет отдельной итерацией.
 
 ## Примеры запросов
 
@@ -88,7 +113,6 @@ curl -X POST http://127.0.0.1:8000/check \
 - PostgreSQL
 - Redis
 - Celery / фоновые задачи
-- Playwright
 - Telegram-бот
 - MCP-сервер
 - LLM

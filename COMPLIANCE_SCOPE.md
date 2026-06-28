@@ -28,7 +28,7 @@ The MVP can detect visible form and document signals. It cannot confirm the lega
 
 The scope includes checking whether a site has a cookie banner or consent mechanism, especially when analytics, advertising pixels, chats, widgets, or other optional cookies are used.
 
-Future checks should distinguish technical cookies from optional cookies and should look for equal-choice controls such as "Accept" and "Decline". This is not implemented in the current MVP.
+The MVP now includes an optional Playwright-based `BrowserClient` infrastructure layer for collecting browser-observed cookies, network requests, and console errors when enabled. This layer must stay free of business logic and legal conclusions. Future `CookieAnalyzer` work should distinguish technical cookies from optional cookies and should look for equal-choice controls such as "Accept" and "Decline".
 
 ### Owner Requisites
 
@@ -80,6 +80,6 @@ The current MVP can classify some social network and messenger links as external
 
 ## Out Of Scope For The Current MVP
 
-The current MVP must not be expanded to include PostgreSQL, Playwright, LLM, Telegram bot functionality, MCP, external registry APIs, background jobs, or persistent check history.
+The current MVP must not be expanded to include PostgreSQL, LLM, Telegram bot functionality, MCP, external registry APIs, background jobs, or persistent check history. Playwright is allowed only as an optional browser infrastructure layer controlled by settings; it must not introduce business logic, risk scoring, screenshots, form submission, or automatic consent actions.
 
-Future analyzers should follow the existing layered architecture: analyzers work from `PageData`, services coordinate results, `RiskService` uses analyzer outputs only, and `ReportService` reports only facts present in `CheckResult`.
+Future analyzers should follow the existing layered architecture: analyzers work from `PageData` or explicit infrastructure outputs, services coordinate results, `RiskService` uses analyzer outputs only, and `ReportService` reports only facts present in `CheckResult`. Browser infrastructure should be used only where static HTML analysis is insufficient and must not contain compliance decisions.

@@ -19,6 +19,7 @@ from app.schemas.domain_compliance import DomainComplianceResult
 from app.schemas.pages import PageData, PageItem, PagesResult
 from app.schemas.site import SiteInfo
 from app.services.availability_service import AvailabilityService, UNAVAILABLE_MESSAGE
+from app.services.browser_check_service import BrowserCheckService
 from app.services.crawl_service import CrawlService
 from app.services.report_service import ReportService
 from app.services.risk_service import RiskService
@@ -40,6 +41,7 @@ class CheckService:
         https_analyzer: HttpsAnalyzer | None = None,
         owner_requisites_analyzer: OwnerRequisitesAnalyzer | None = None,
         russian_market_analyzer: RussianMarketAnalyzer | None = None,
+        browser_check_service: BrowserCheckService | None = None,
         risk_service: RiskService | None = None,
         report_service: ReportService | None = None,
     ) -> None:
@@ -55,6 +57,7 @@ class CheckService:
         self.https_analyzer = https_analyzer or HttpsAnalyzer()
         self.owner_requisites_analyzer = owner_requisites_analyzer or OwnerRequisitesAnalyzer()
         self.russian_market_analyzer = russian_market_analyzer or RussianMarketAnalyzer()
+        self.browser_check_service = browser_check_service or BrowserCheckService()
         self.risk_service = risk_service or RiskService()
         self.report_service = report_service or ReportService()
 
@@ -108,6 +111,12 @@ class CheckService:
         security = self.https_analyzer.analyze(pages_data, forms)
         owner_requisites = self.owner_requisites_analyzer.analyze(pages_data)
         russian_market = self.russian_market_analyzer.analyze(pages_data)
+        browser_check = None
+        if self.browser_check_service.enabled:
+            browser_check = await self.browser_check_service.check(
+                pages_data[:1],
+                source_domain=site.domain,
+            )
 
         status = "partial" if crawl.warnings else "completed"
         check_meta = self._check_meta(status=status, started_at=started_at)
@@ -125,6 +134,7 @@ class CheckService:
             check=check_meta,
             availability=availability,
             domain_compliance=domain_compliance,
+            browser_check=browser_check,
             pages=self._to_pages_result(pages_data),
             owner_requisites=owner_requisites,
             russian_market=russian_market,

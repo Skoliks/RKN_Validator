@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     max_pages_per_site: int = 5
     request_timeout_seconds: float = 10
     max_requests_per_site: int = 15
+    enable_browser_check: bool = False
+    browser_timeout_seconds: float = 15
+    browser_navigation_wait_until: str = "networkidle"
+    browser_max_network_requests: int = 200
 
     model_config = SettingsConfigDict(
         env_file=".env",

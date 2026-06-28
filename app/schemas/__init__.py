@@ -1,5 +1,11 @@
 from app.schemas.authentication import AuthProviderItem, AuthenticationResult
 from app.schemas.availability import AvailabilityInfo
+from app.schemas.browser import (
+    BrowserCheckResult,
+    BrowserCookieItem,
+    BrowserNetworkRequest,
+    BrowserPageResult,
+)
 from app.schemas.check import CheckMeta, CheckRequest, CheckResult
 from app.schemas.consents import ConsentItem, ConsentsResult
 from app.schemas.domain_compliance import DomainComplianceResult
@@ -18,6 +24,10 @@ __all__ = [
     "AuthProviderItem",
     "AuthenticationResult",
     "AvailabilityInfo",
+    "BrowserCheckResult",
+    "BrowserCookieItem",
+    "BrowserNetworkRequest",
+    "BrowserPageResult",
     "CheckMeta",
     "CheckRequest",
     "CheckResult",

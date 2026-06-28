@@ -1,4 +1,5 @@
 import pytest
+from app.schemas.browser import BrowserCheckResult, BrowserPageResult
 from app.schemas.availability import AvailabilityInfo
 from app.schemas.pages import CrawlResult, PageData
 from app.schemas.site import SiteInfo
@@ -22,6 +23,29 @@ class FakeCrawlService:
         return self.result
 
 
+class FakeBrowserCheckService:
+    def __init__(self, enabled: bool) -> None:
+        self.enabled = enabled
+        self.called = False
+
+    async def check(self, pages_or_urls, source_domain: str | None = None):
+        self.called = True
+        if not self.enabled:
+            raise AssertionError("Browser check should not be called when disabled.")
+        return BrowserCheckResult(
+            enabled=True,
+            performed=True,
+            pages_checked=1,
+            items=[
+                BrowserPageResult(
+                    browser_check_performed=True,
+                    url="https://example.ru",
+                    final_url="https://example.ru",
+                )
+            ],
+        )
+
+
 def make_available() -> AvailabilityInfo:
     return AvailabilityInfo(available=True, status_code=200, message="Сайт доступен.")
 
@@ -37,6 +61,7 @@ def make_service(
     return CheckService(
         availability_service=FakeAvailabilityService(availability or make_available()),
         crawl_service=FakeCrawlService(crawl or CrawlResult(pages=[make_page("<html></html>")])),
+        browser_check_service=FakeBrowserCheckService(enabled=False),
     )
 
 
@@ -215,6 +240,37 @@ async def test_check_service_includes_domain_compliance_for_io_zone() -> None:
     assert result.domain_compliance.applies_to_domain_zone is False
     assert result.domain_compliance.esia_identification_required is False
     assert result.domain_compliance.status == "not_applicable"
+
+
+@pytest.mark.asyncio
+async def test_check_service_does_not_call_browser_check_when_disabled() -> None:
+    browser_check_service = FakeBrowserCheckService(enabled=False)
+    service = CheckService(
+        availability_service=FakeAvailabilityService(make_available()),
+        crawl_service=FakeCrawlService(CrawlResult(pages=[make_page("<html></html>")])),
+        browser_check_service=browser_check_service,
+    )
+
+    result = await service.check("https://example.ru")
+
+    assert browser_check_service.called is False
+    assert result.browser_check is None
+
+
+@pytest.mark.asyncio
+async def test_check_service_includes_browser_check_when_enabled() -> None:
+    browser_check_service = FakeBrowserCheckService(enabled=True)
+    service = CheckService(
+        availability_service=FakeAvailabilityService(make_available()),
+        crawl_service=FakeCrawlService(CrawlResult(pages=[make_page("<html></html>")])),
+        browser_check_service=browser_check_service,
+    )
+
+    result = await service.check("https://example.ru")
+
+    assert browser_check_service.called is True
+    assert result.browser_check is not None
+    assert result.browser_check.performed is True
 
 
 def test_check_result_pages_do_not_contain_html() -> None:

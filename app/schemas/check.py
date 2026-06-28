@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.schemas.authentication import AuthenticationResult
 from app.schemas.availability import AvailabilityInfo
+from app.schemas.browser import BrowserCheckResult
 from app.schemas.consents import ConsentsResult
 from app.schemas.domain_compliance import DomainComplianceResult
 from app.schemas.external_services import ExternalServicesResult
@@ -42,6 +43,7 @@ class CheckResult(BaseModel):
     check: CheckMeta
     availability: AvailabilityInfo | None = None
     domain_compliance: DomainComplianceResult | None = None
+    browser_check: BrowserCheckResult | None = None
     pages: PagesResult | None = None
     owner_requisites: OwnerRequisitesResult | None = None
     russian_market: RussianMarketResult | None = None
