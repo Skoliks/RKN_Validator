@@ -4,6 +4,7 @@ from time import perf_counter
 from app.analyzers import (
     AuthProviderAnalyzer,
     ConsentAnalyzer,
+    CookieAnalyzer,
     DomainComplianceAnalyzer,
     ExternalServicesAnalyzer,
     FormAnalyzer,
@@ -34,6 +35,7 @@ class CheckService:
         crawl_service: CrawlService | None = None,
         form_analyzer: FormAnalyzer | None = None,
         consent_analyzer: ConsentAnalyzer | None = None,
+        cookie_analyzer: CookieAnalyzer | None = None,
         policy_analyzer: PolicyAnalyzer | None = None,
         domain_compliance_analyzer: DomainComplianceAnalyzer | None = None,
         external_services_analyzer: ExternalServicesAnalyzer | None = None,
@@ -50,6 +52,7 @@ class CheckService:
         self.crawl_service = crawl_service or CrawlService()
         self.form_analyzer = form_analyzer or FormAnalyzer()
         self.consent_analyzer = consent_analyzer or ConsentAnalyzer()
+        self.cookie_analyzer = cookie_analyzer or CookieAnalyzer()
         self.policy_analyzer = policy_analyzer or PolicyAnalyzer()
         self.domain_compliance_analyzer = domain_compliance_analyzer or DomainComplianceAnalyzer()
         self.external_services_analyzer = external_services_analyzer or ExternalServicesAnalyzer()
@@ -117,6 +120,7 @@ class CheckService:
                 pages_data[:1],
                 source_domain=site.domain,
             )
+        cookies = self.cookie_analyzer.analyze(browser_check) if browser_check else None
 
         status = "partial" if crawl.warnings else "completed"
         check_meta = self._check_meta(status=status, started_at=started_at)
@@ -127,6 +131,7 @@ class CheckService:
             external_services=external_services,
             authentication=authentication,
             security=security,
+            cookies=cookies,
             check=check_meta,
         )
         result = CheckResult(
@@ -135,6 +140,7 @@ class CheckService:
             availability=availability,
             domain_compliance=domain_compliance,
             browser_check=browser_check,
+            cookies=cookies,
             pages=self._to_pages_result(pages_data),
             owner_requisites=owner_requisites,
             russian_market=russian_market,

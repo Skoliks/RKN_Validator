@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from app.schemas.authentication import AuthenticationResult, AuthProviderItem
 from app.schemas.check import CheckMeta
 from app.schemas.consents import ConsentItem, ConsentsResult
+from app.schemas.cookies import CookieAnalysisResult, CookieBeforeConsentItem, CookieNetworkRequestItem
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormField, FormItem, FormsResult
 from app.schemas.policy import PolicyMatchedLink, PolicyResult
@@ -301,3 +302,120 @@ def test_partial_check_adds_partial_factor() -> None:
     assert result.total_score == 15
     assert result.level == "low"
     assert "partial_check" in factor_codes(result)
+
+
+def test_cookie_banner_not_found_added_only_with_browser_evidence() -> None:
+    result = RiskService().assess(
+        cookies=CookieAnalysisResult(
+            browser_check_available=True,
+            analyzed=True,
+            banner_found=False,
+            cookies_before_consent_found=True,
+            analytics_requests_before_consent_found=True,
+        ),
+        check=make_check(),
+    )
+
+    assert "cookie_banner_not_found" in factor_codes(result)
+    assert result.level == "medium"
+
+
+def test_cookie_factors_not_added_when_browser_check_unavailable() -> None:
+    result = RiskService().assess(
+        cookies=CookieAnalysisResult(
+            browser_check_available=False,
+            analyzed=False,
+            cookies_before_consent_found=True,
+            analytics_requests_before_consent_found=True,
+        ),
+        check=make_check(),
+    )
+
+    assert {
+        "cookie_banner_not_found",
+        "cookies_before_consent_detected",
+        "advertising_before_consent_detected",
+    }.isdisjoint(factor_codes(result))
+
+
+def test_cookie_risk_factors_for_third_party_and_advertising() -> None:
+    result = RiskService().assess(
+        cookies=CookieAnalysisResult(
+            browser_check_available=True,
+            analyzed=True,
+            banner_found=True,
+            third_party_cookies_before_consent_found=True,
+            advertising_requests_before_consent_found=True,
+            cookies_before_consent=[
+                CookieBeforeConsentItem(
+                    name="ad",
+                    domain="doubleclick.net",
+                    is_third_party=True,
+                    category="advertising",
+                )
+            ],
+            requests_before_consent=[
+                CookieNetworkRequestItem(
+                    url="https://doubleclick.net/activity",
+                    domain="doubleclick.net",
+                    category="advertising",
+                    is_third_party=True,
+                )
+            ],
+        ),
+        check=make_check(),
+    )
+
+    assert "cookies_before_consent_detected" in factor_codes(result)
+    assert "advertising_before_consent_detected" in factor_codes(result)
+    assert result.level == "medium"
+
+
+def test_cookie_advertising_evidence_is_deduplicated_and_limited() -> None:
+    duplicated_requests = [
+        CookieNetworkRequestItem(
+            url="https://doubleclick.net/activity",
+            domain="doubleclick.net",
+            category="advertising",
+            is_third_party=True,
+        ),
+        CookieNetworkRequestItem(
+            url="https://doubleclick.net/activity",
+            domain="doubleclick.net",
+            category="advertising",
+            is_third_party=True,
+        ),
+        *[
+            CookieNetworkRequestItem(
+                url=f"https://doubleclick.net/activity/{index}",
+                domain="doubleclick.net",
+                category="advertising",
+                is_third_party=True,
+            )
+            for index in range(10)
+        ],
+    ]
+
+    result = RiskService().assess(
+        cookies=CookieAnalysisResult(
+            browser_check_available=True,
+            analyzed=True,
+            banner_found=True,
+            advertising_requests_before_consent_found=True,
+            requests_before_consent=duplicated_requests,
+        ),
+        check=make_check(),
+    )
+
+    factor = next(
+        factor
+        for factor in result.factors
+        if factor.code == "advertising_before_consent_detected"
+    )
+    assert factor.evidence == [
+        "https://doubleclick.net/activity",
+        "https://doubleclick.net/activity/0",
+        "https://doubleclick.net/activity/1",
+        "https://doubleclick.net/activity/2",
+        "https://doubleclick.net/activity/3",
+    ]

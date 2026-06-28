@@ -42,13 +42,16 @@ DomainComplianceAnalyzer: определение применимости руч
 ## Iteration 14
 BrowserClient on Playwright: optional browser infrastructure for collecting cookies, network requests, and console errors when enabled; no CookieAnalyzer, risk scoring, screenshots, clicks, or form submission.
 
+## Iteration 15
+CookieAnalyzer on BrowserCheck data: preliminary detection of cookie-banner text, cookies after initial page load before explicit user choice, and third-party analytics or advertising requests; no clicks, screenshots, form submission, or legal conclusions.
+
 ## Future iterations after MVP
 
 These items are future scope only. They must not expand the current MVP and must follow `PROJECT_RULES.md` layering and tooling constraints.
 
 - OwnerRequisitesAnalyzer improvements: improve completeness scoring, legal-address confidence, and privacy-contact context.
 - DomainComplianceAnalyzer improvements: add optional manual evidence fields for registrar and administrator checks without whois or external APIs.
-- CookieAnalyzer: use static HTML and optional browser outputs to detect cookie banners, accept/decline controls, and optional cookie or tracking scripts that appear before consent.
+- CookieAnalyzer improvements: improve banner extraction, consent-control interpretation, and cookie category confidence without making legal conclusions.
 - AdvertisingAnalyzer: detect advertising labels, advertiser mentions, and `erid` tokens.
 - AccessibilityAnalyzer: perform lightweight static accessibility checks such as missing alt text, weak link text, heading structure, and language attributes.
 - HostingLocationAnalyzer: collect technical hosting hints and manual evidence for hosting/provider localization checks without external APIs in the MVP.

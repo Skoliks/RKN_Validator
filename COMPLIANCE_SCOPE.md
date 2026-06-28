@@ -28,7 +28,7 @@ The MVP can detect visible form and document signals. It cannot confirm the lega
 
 The scope includes checking whether a site has a cookie banner or consent mechanism, especially when analytics, advertising pixels, chats, widgets, or other optional cookies are used.
 
-The MVP now includes an optional Playwright-based `BrowserClient` infrastructure layer for collecting browser-observed cookies, network requests, and console errors when enabled. This layer must stay free of business logic and legal conclusions. Future `CookieAnalyzer` work should distinguish technical cookies from optional cookies and should look for equal-choice controls such as "Accept" and "Decline".
+The MVP now includes an optional Playwright-based `BrowserClient` infrastructure layer for collecting browser-observed cookies, network requests, visible text, and console errors when enabled. `CookieAnalyzer` uses that browser output to detect preliminary signs of a cookie banner, cookies after the initial page load before explicit user choice, and third-party analytics or advertising requests. The check is text-based, does not click buttons, does not submit forms, and does not make legal conclusions. Manual review remains required.
 
 ### Owner Requisites
 

@@ -8,6 +8,12 @@ from app.schemas.browser import (
 )
 from app.schemas.check import CheckMeta, CheckRequest, CheckResult
 from app.schemas.consents import ConsentItem, ConsentsResult
+from app.schemas.cookies import (
+    CookieAnalysisResult,
+    CookieBannerCandidate,
+    CookieBeforeConsentItem,
+    CookieNetworkRequestItem,
+)
 from app.schemas.domain_compliance import DomainComplianceResult
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormField, FormItem, FormsResult
@@ -33,6 +39,10 @@ __all__ = [
     "CheckResult",
     "ConsentItem",
     "ConsentsResult",
+    "CookieAnalysisResult",
+    "CookieBannerCandidate",
+    "CookieBeforeConsentItem",
+    "CookieNetworkRequestItem",
     "CrawlResult",
     "DomainComplianceResult",
     "ExternalServiceItem",

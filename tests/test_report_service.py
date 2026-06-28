@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from app.schemas.availability import AvailabilityInfo
 from app.schemas.check import CheckMeta, CheckResult
+from app.schemas.cookies import CookieAnalysisResult
 from app.schemas.domain_compliance import DomainComplianceResult
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormField, FormItem, FormsResult
@@ -22,6 +23,7 @@ def make_check_result(
     factors: list[RiskFactor] | None = None,
     availability: AvailabilityInfo | None = None,
     domain_compliance: DomainComplianceResult | None = None,
+    cookies: CookieAnalysisResult | None = None,
     forms: FormsResult | None = None,
     owner_requisites: OwnerRequisitesResult | None = None,
     policy: PolicyResult | None = None,
@@ -45,6 +47,7 @@ def make_check_result(
         ),
         availability=availability or AvailabilityInfo(available=True, status_code=200),
         domain_compliance=domain_compliance,
+        cookies=cookies,
         pages=PagesResult(
             total_found=4,
             total_checked=4,
@@ -319,3 +322,32 @@ def test_report_mentions_mixed_content_without_risk_escalation() -> None:
         "Также обнаружено подключение ресурса по незащищённому протоколу HTTP "
         "на HTTPS-странице."
     ) in report.summary
+
+
+def test_report_mentions_cookies_before_user_choice_cautiously() -> None:
+    report = ReportService().build(
+        make_check_result(
+            cookies=CookieAnalysisResult(
+                browser_check_available=True,
+                analyzed=True,
+                banner_found=False,
+                cookies_before_consent_found=True,
+                third_party_cookies_before_consent_found=True,
+                analytics_requests_before_consent_found=True,
+                advertising_requests_before_consent_found=True,
+            )
+        )
+    )
+
+    assert (
+        "На момент браузерной проверки обнаружены cookies после первичной загрузки "
+        "страницы до явного выбора пользователя."
+    ) in report.summary
+    assert (
+        "Также обнаружены запросы к аналитическим или рекламным сервисам "
+        "до явного выбора пользователя."
+    ) in report.summary
+    assert "Cookie-баннер не был найден или не был распознан автоматически" in report.summary
+    assert "нарушает закон" not in report.summary.lower()
+    assert "согласие отсутствует" not in report.summary.lower()
+    assert "обработка незаконна" not in report.summary.lower()

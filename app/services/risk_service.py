@@ -3,6 +3,7 @@ from html import unescape
 from app.schemas.authentication import AuthenticationResult
 from app.schemas.check import CheckMeta
 from app.schemas.consents import ConsentsResult
+from app.schemas.cookies import CookieAnalysisResult
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormsResult
 from app.schemas.policy import PolicyResult
@@ -22,6 +23,7 @@ class RiskService:
         external_services: ExternalServicesResult | None = None,
         authentication: AuthenticationResult | None = None,
         security: SecurityResult | None = None,
+        cookies: CookieAnalysisResult | None = None,
         check: CheckMeta | str | None = None,
         policy_available: bool | None = None,
     ) -> RiskAssessment:
@@ -132,6 +134,9 @@ class RiskService:
                     evidence=insecure_personal_forms,
                 )
             )
+
+        cookie_factors = self._cookie_factors(cookies)
+        factors.extend(cookie_factors)
 
         if self._check_status(check) == "partial":
             factors.append(
@@ -253,6 +258,68 @@ class RiskService:
             if action.page_url in personal_pages
         ]
 
+    def _cookie_factors(self, cookies: CookieAnalysisResult | None) -> list[RiskFactor]:
+        if not cookies or not cookies.analyzed or not cookies.browser_check_available:
+            return []
+
+        factors: list[RiskFactor] = []
+        if (
+            not cookies.banner_found
+            and (
+                cookies.cookies_before_consent_found
+                or cookies.analytics_requests_before_consent_found
+            )
+        ):
+            factors.append(
+                self._factor(
+                    code="cookie_banner_not_found",
+                    level="medium",
+                    score=20,
+                    message=(
+                        "На момент браузерной проверки cookie-баннер не найден или не был распознан автоматически "
+                        "при наличии признаков cookies или аналитических запросов до выбора пользователя."
+                    ),
+                    evidence=["banner_found=false"],
+                )
+            )
+
+        if (
+            cookies.analytics_requests_before_consent_found
+            or cookies.third_party_cookies_before_consent_found
+        ):
+            factors.append(
+                self._factor(
+                    code="cookies_before_consent_detected",
+                    level="medium",
+                    score=20,
+                    message=(
+                        "Обнаружены признаки cookies или аналитических запросов до явного выбора пользователя."
+                    ),
+                    evidence=[
+                        item.name
+                        for item in cookies.cookies_before_consent
+                        if item.is_third_party or item.category == "analytics"
+                    ],
+                )
+            )
+
+        if cookies.advertising_requests_before_consent_found:
+            factors.append(
+                self._factor(
+                    code="advertising_before_consent_detected",
+                    level="medium",
+                    score=25,
+                    message="Обнаружены запросы к рекламным сервисам до явного выбора пользователя.",
+                    evidence=[
+                        item.url
+                        for item in cookies.requests_before_consent
+                        if item.category == "advertising"
+                    ],
+                )
+            )
+
+        return factors
+
     def _check_status(self, check: CheckMeta | str | None) -> str | None:
         if isinstance(check, str):
             return check
@@ -306,5 +373,19 @@ class RiskService:
             level=level,
             score=score,
             message=message,
-            evidence=[item for item in evidence if item],
+            evidence=self._dedupe_evidence(evidence),
         )
+
+    def _dedupe_evidence(self, evidence: list[str]) -> list[str]:
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for item in evidence:
+            if not item or item in seen:
+                continue
+
+            seen.add(item)
+            deduped.append(item)
+            if len(deduped) >= 5:
+                break
+
+        return deduped

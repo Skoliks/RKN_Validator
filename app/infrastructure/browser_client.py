@@ -6,6 +6,7 @@ from app.schemas.browser import BrowserCookieItem, BrowserNetworkRequest, Browse
 
 class BrowserClient:
     max_stored_url_length = 500
+    max_visible_text_length = 5000
 
     def __init__(
         self,
@@ -72,6 +73,7 @@ class BrowserClient:
                 )
                 title = await page.title()
                 final_url = page.url
+                visible_text = await page.evaluate("document.body ? document.body.innerText : ''")
                 cookies = await context.cookies()
 
                 result = BrowserPageResult(
@@ -79,6 +81,7 @@ class BrowserClient:
                     url=url,
                     final_url=final_url,
                     title=title,
+                    visible_text=visible_text[: self.max_visible_text_length],
                     cookies_after_load=[self._to_cookie_item(cookie) for cookie in cookies],
                     network_requests=network_requests[: self.max_network_requests],
                     console_errors=console_errors,

@@ -33,6 +33,7 @@ class BrowserPageResult(BaseModel):
     url: str
     final_url: str | None = None
     title: str | None = None
+    visible_text: str | None = None
     cookies_after_load: list[BrowserCookieItem] = Field(default_factory=list)
     network_requests: list[BrowserNetworkRequest] = Field(default_factory=list)
     console_errors: list[str] = Field(default_factory=list)

@@ -20,6 +20,9 @@ class ReportService:
         "foreign_auth_detected": "найдены признаки авторизации через внешний сервис",
         "site_without_https": "часть страниц доступна без HTTPS",
         "forms_submit_over_http": "форма с возможным сбором данных отправляется по HTTP",
+        "cookie_banner_not_found": "cookie-баннер не найден или не распознан автоматически при наличии cookie-признаков",
+        "cookies_before_consent_detected": "обнаружены признаки cookies или аналитических запросов до выбора пользователя",
+        "advertising_before_consent_detected": "обнаружены запросы к рекламным сервисам до выбора пользователя",
         "partial_check": "проверка выполнена частично",
     }
 
@@ -76,6 +79,23 @@ class ReportService:
             )
         elif check_result.forms is not None:
             sentences.append("На проверенных страницах формы сбора данных не найдены.")
+
+        if check_result.cookies and check_result.cookies.analyzed:
+            if check_result.cookies.cookies_before_consent_found:
+                sentences.append(
+                    "На момент браузерной проверки обнаружены cookies после первичной загрузки страницы до явного выбора пользователя."
+                )
+            if (
+                check_result.cookies.analytics_requests_before_consent_found
+                or check_result.cookies.advertising_requests_before_consent_found
+            ):
+                sentences.append(
+                    "Также обнаружены запросы к аналитическим или рекламным сервисам до явного выбора пользователя."
+                )
+            if not check_result.cookies.banner_found:
+                sentences.append(
+                    "Cookie-баннер не был найден или не был распознан автоматически; требуется ручная проверка."
+                )
 
         if check_result.domain_compliance:
             if check_result.domain_compliance.applies_to_domain_zone:
