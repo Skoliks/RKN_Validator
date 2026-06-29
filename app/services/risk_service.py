@@ -1,4 +1,5 @@
 from html import unescape
+from urllib.parse import urlsplit, urlunsplit
 
 from app.schemas.accessibility import AccessibilityAnalysisResult
 from app.schemas.advertising import AdvertisingAnalysisResult
@@ -8,6 +9,7 @@ from app.schemas.consents import ConsentsResult
 from app.schemas.cookies import CookieAnalysisResult
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormsResult
+from app.schemas.infrastructure import InfrastructureAnalysisResult
 from app.schemas.policy import PolicyResult
 from app.schemas.risk import RiskAssessment, RiskFactor
 from app.schemas.security import SecurityResult
@@ -22,6 +24,14 @@ class RiskService:
         "advertising_before_consent_detected",
         "cookie_reject_button_not_found",
         "cookie_reject_did_not_reduce_tracking",
+        "advertising_service_without_erid",
+        "advertising_service_without_label",
+        "possible_ad_blocks_detected",
+        "accessibility_medium_issues_detected",
+        "accessibility_low_issues_detected",
+        "foreign_infrastructure_services_detected",
+        "external_infrastructure_services_detected",
+        "analytics_infrastructure_detected",
     }
     preliminary_cookie_score_cap = 85
 
@@ -36,6 +46,7 @@ class RiskService:
         cookies: CookieAnalysisResult | None = None,
         advertising: AdvertisingAnalysisResult | None = None,
         accessibility: AccessibilityAnalysisResult | None = None,
+        infrastructure: InfrastructureAnalysisResult | None = None,
         check: CheckMeta | str | None = None,
         policy_available: bool | None = None,
     ) -> RiskAssessment:
@@ -151,6 +162,7 @@ class RiskService:
         factors.extend(cookie_factors)
         factors.extend(self._advertising_factors(advertising))
         factors.extend(self._accessibility_factors(accessibility))
+        factors.extend(self._infrastructure_factors(infrastructure))
 
         if self._check_status(check) == "partial":
             factors.append(
@@ -163,6 +175,7 @@ class RiskService:
                 )
             )
 
+        factors = self._dedupe_factors(factors)
         total_score = self._score_for_factors(factors)
         level = self._level_for_score(total_score)
         level = self._apply_escalation_rules(level, factors, has_personal_data_forms)
@@ -252,7 +265,23 @@ class RiskService:
     def _normalize_evidence_url(self, value: str | None) -> str | None:
         if not value:
             return value
-        return unescape(value).strip()
+        normalized = unescape(value).strip()
+        if normalized.startswith("data:image"):
+            return "inline data image"
+        if "data:image" in normalized:
+            prefix = normalized.split("data:image", 1)[0].rstrip()
+            if prefix and not prefix.endswith(" "):
+                prefix += " "
+            return prefix + "inline data image"
+        if len(normalized) > 300:
+            normalized = normalized[:300]
+        try:
+            parts = urlsplit(normalized)
+        except ValueError:
+            return normalized
+        if parts.scheme and parts.netloc and parts.query:
+            return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+        return normalized
 
     def _insecure_personal_forms(
         self,
@@ -425,6 +454,85 @@ class RiskService:
 
         return factors
 
+    def _infrastructure_factors(
+        self,
+        infrastructure: InfrastructureAnalysisResult | None,
+    ) -> list[RiskFactor]:
+        if not infrastructure or not infrastructure.checked or not infrastructure.external_domains_found:
+            return []
+
+        factors: list[RiskFactor] = []
+        if infrastructure.foreign_services_found:
+            factors.append(
+                self._factor(
+                    code="foreign_infrastructure_services_detected",
+                    level="medium",
+                    score=20,
+                    message="Обнаружены признаки использования иностранных инфраструктурных сервисов.",
+                    evidence=self._infrastructure_foreign_evidence(infrastructure),
+                )
+            )
+        else:
+            factors.append(
+                self._factor(
+                    code="external_infrastructure_services_detected",
+                    level="low",
+                    score=10,
+                    message="Обнаружены сторонние инфраструктурные домены.",
+                    evidence=[
+                        item.domain
+                        for item in infrastructure.domains
+                        if item.is_third_party
+                    ],
+                )
+            )
+
+        if infrastructure.analytics_services_found:
+            factors.append(
+                self._factor(
+                    code="analytics_infrastructure_detected",
+                    level="medium",
+                    score=15,
+                    message="Обнаружены аналитические инфраструктурные сервисы.",
+                    evidence=self._infrastructure_category_evidence(infrastructure, "analytics"),
+                )
+            )
+
+        return factors
+
+    def _infrastructure_foreign_evidence(
+        self,
+        infrastructure: InfrastructureAnalysisResult,
+    ) -> list[str]:
+        service_evidence = [
+            f"{item.provider}: {item.domain}"
+            for item in infrastructure.services
+            if item.likely_foreign is True
+        ]
+        domain_evidence = [
+            item.domain
+            for item in infrastructure.domains
+            if item.likely_foreign is True and item.is_third_party
+        ]
+        return service_evidence + domain_evidence
+
+    def _infrastructure_category_evidence(
+        self,
+        infrastructure: InfrastructureAnalysisResult,
+        category: str,
+    ) -> list[str]:
+        service_evidence = [
+            f"{item.provider}: {item.domain}"
+            for item in infrastructure.services
+            if item.category == category
+        ]
+        domain_evidence = [
+            item.domain
+            for item in infrastructure.domains
+            if item.category == category and item.is_third_party
+        ]
+        return service_evidence + domain_evidence
+
     def _accessibility_factors(
         self,
         accessibility: AccessibilityAnalysisResult | None,
@@ -568,12 +676,23 @@ class RiskService:
         deduped: list[str] = []
         seen: set[str] = set()
         for item in evidence:
-            if not item or item in seen:
+            normalized = self._normalize_evidence_url(item)
+            if not normalized or normalized in seen:
                 continue
 
-            seen.add(item)
-            deduped.append(item)
+            seen.add(normalized)
+            deduped.append(normalized)
             if len(deduped) >= 5:
                 break
 
+        return deduped
+
+    def _dedupe_factors(self, factors: list[RiskFactor]) -> list[RiskFactor]:
+        deduped: list[RiskFactor] = []
+        seen: set[str] = set()
+        for factor in factors:
+            if factor.code in seen:
+                continue
+            seen.add(factor.code)
+            deduped.append(factor)
         return deduped

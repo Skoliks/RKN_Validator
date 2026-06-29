@@ -11,6 +11,10 @@ from tests.test_report_service import make_check_result
 from tests.test_risk_service import factor_codes, make_check
 
 
+def summary_text(report) -> str:
+    return " ".join(report.summary)
+
+
 def page(html: str, url: str = "https://example.ru") -> PageData:
     return PageData(url=url, final_url=url, status_code=200, html=html)
 
@@ -197,12 +201,11 @@ def test_report_service_mentions_accessibility_cautiously() -> None:
         )
     )
 
-    assert "Обнаружены признаки возможных технических проблем доступности" in report.summary
-    assert "На проверенных страницах найдены изображения без атрибута alt." in report.summary
-    assert "Найдены ссылки или кнопки без доступного текстового описания." in report.summary
-    assert "Найдены поля форм без автоматически определённой подписи." in report.summary
-    assert "сайт не соответствует ГОСТ" not in report.summary
-    assert "сайт нарушает требования доступности" not in report.summary
+    assert "Обнаружены признаки возможных технических проблем доступности" in summary_text(report)
+    assert "Базовая техническая доступность" in report.checked_areas
+    assert "Проверить найденные технические замечания по доступности." in report.recommendations
+    assert "сайт не соответствует ГОСТ" not in summary_text(report)
+    assert "сайт нарушает требования доступности" not in summary_text(report)
 
 
 @pytest.mark.asyncio

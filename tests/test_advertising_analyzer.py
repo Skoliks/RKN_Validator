@@ -12,6 +12,10 @@ from tests.test_report_service import make_check_result
 from tests.test_risk_service import factor_codes, make_check
 
 
+def summary_text(report) -> str:
+    return " ".join(report.summary)
+
+
 def page(html: str, url: str = "https://example.ru") -> PageData:
     return PageData(url=url, final_url=url, status_code=200, html=html)
 
@@ -214,10 +218,10 @@ def test_report_service_mentions_advertising_services_cautiously() -> None:
         )
     )
 
-    assert "Обнаружены признаки подключения рекламных сервисов." in report.summary
-    assert "На проверенных страницах не найден erid" in report.summary
-    assert "Явная маркировка рекламы не была найдена автоматически." in report.summary
-    assert "нарушает закон" not in report.summary.lower()
+    assert "Обнаружены признаки подключения рекламных сервисов." in summary_text(report)
+    assert "На проверенных страницах не найден erid" in summary_text(report)
+    assert "Явная маркировка рекламы не была найдена автоматически." in summary_text(report)
+    assert "нарушает закон" not in summary_text(report).lower()
 
 
 @pytest.mark.asyncio

@@ -19,6 +19,10 @@ class BrowserPageClient(Protocol):
 
 
 class BrowserCheckService:
+    cookie_interaction_not_found_warning = (
+        "Cookie-баннер или кнопка отклонения не были найдены автоматически."
+    )
+
     def __init__(
         self,
         browser_client: BrowserPageClient | None = None,
@@ -65,10 +69,17 @@ class BrowserCheckService:
 
         cookie_interaction = None
         if self.cookie_interaction_enabled:
-            cookie_interaction = await self.browser_client.check_cookie_interaction(
-                urls[0],
-                source_domain=source_domain,
-            )
+            try:
+                cookie_interaction = await self.browser_client.check_cookie_interaction(
+                    urls[0],
+                    source_domain=source_domain,
+                )
+            except Exception as exc:
+                cookie_interaction = self._cookie_interaction_error_result(exc)
+            else:
+                cookie_interaction = self._normalize_cookie_interaction_result(
+                    cookie_interaction
+                )
 
         return BrowserCheckResult(
             enabled=True,
@@ -105,3 +116,64 @@ class BrowserCheckService:
                 ],
             }
         )
+
+    def _cookie_interaction_error_result(self, exc: Exception) -> CookieInteractionResult:
+        return CookieInteractionResult(
+            enabled=True,
+            performed=True,
+            banner_found=False,
+            buttons_found=[],
+            reject_clicked=False,
+            accept_clicked=False,
+            warnings=[
+                self.cookie_interaction_not_found_warning,
+                f"Cookie interaction check failed: {type(exc).__name__}.",
+            ],
+        )
+
+    def _normalize_cookie_interaction_result(
+        self,
+        result: CookieInteractionResult,
+    ) -> CookieInteractionResult:
+        if result.performed:
+            if not result.banner_found and not result.buttons_found:
+                return result.model_copy(
+                    update={
+                        "warnings": self._with_cookie_interaction_not_found_warning(
+                            result.warnings
+                        )
+                    }
+                )
+            return result
+
+        if self._has_timeout_warning(result.warnings):
+            return result.model_copy(
+                update={
+                    "performed": True,
+                    "banner_found": False,
+                    "buttons_found": [],
+                    "reject_clicked": False,
+                    "accept_clicked": False,
+                    "warnings": self._with_cookie_interaction_not_found_warning(
+                        result.warnings
+                    ),
+                }
+            )
+
+        return result
+
+    def _has_timeout_warning(self, warnings: list[str]) -> bool:
+        return any(
+            "TimeoutError" in warning or "timeout" in warning.lower()
+            for warning in warnings
+        )
+
+    def _with_cookie_interaction_not_found_warning(
+        self,
+        warnings: list[str],
+    ) -> list[str]:
+        deduped: list[str] = []
+        for warning in [self.cookie_interaction_not_found_warning, *warnings]:
+            if warning and warning not in deduped:
+                deduped.append(warning)
+        return deduped

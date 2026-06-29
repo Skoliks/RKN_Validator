@@ -69,6 +69,15 @@ class FakeBrowserClient:
         )
 
 
+class TimeoutCookieInteractionClient(FakeBrowserClient):
+    async def check_cookie_interaction(
+        self,
+        url: str,
+        source_domain: str | None = None,
+    ) -> CookieInteractionResult:
+        raise TimeoutError()
+
+
 @pytest.mark.asyncio
 async def test_browser_check_service_returns_disabled_result_when_off() -> None:
     result = await BrowserCheckService(
@@ -175,3 +184,27 @@ async def test_browser_check_service_returns_cookies_network_and_limits_requests
     assert len(result.items[0].network_requests) == 2
     assert result.items[0].network_requests[0].is_third_party is True
     assert "Network request list was truncated" in result.items[0].warnings[0]
+
+
+@pytest.mark.asyncio
+async def test_browser_check_service_handles_cookie_interaction_timeout() -> None:
+    result = await BrowserCheckService(
+        browser_client=TimeoutCookieInteractionClient(),
+        enabled=True,
+        cookie_interaction_enabled=True,
+    ).check(["https://example.ru"], source_domain="example.ru")
+
+    interaction = result.cookie_interaction
+
+    assert interaction is not None
+    assert interaction.enabled is True
+    assert interaction.performed is True
+    assert interaction.banner_found is False
+    assert interaction.buttons_found == []
+    assert interaction.reject_clicked is False
+    assert interaction.accept_clicked is False
+    assert (
+        "Cookie-баннер или кнопка отклонения не были найдены автоматически."
+        in interaction.warnings
+    )
+    assert "Cookie interaction check failed: TimeoutError." in interaction.warnings

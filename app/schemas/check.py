@@ -13,6 +13,7 @@ from app.schemas.cookies import CookieAnalysisResult
 from app.schemas.domain_compliance import DomainComplianceResult
 from app.schemas.external_services import ExternalServicesResult
 from app.schemas.forms import FormsResult
+from app.schemas.infrastructure import InfrastructureAnalysisResult
 from app.schemas.owner_requisites import OwnerRequisitesResult
 from app.schemas.pages import PagesResult
 from app.schemas.policy import PolicyResult
@@ -50,6 +51,7 @@ class CheckResult(BaseModel):
     cookies: CookieAnalysisResult | None = None
     advertising: AdvertisingAnalysisResult | None = None
     accessibility: AccessibilityAnalysisResult | None = None
+    infrastructure: InfrastructureAnalysisResult | None = None
     pages: PagesResult | None = None
     owner_requisites: OwnerRequisitesResult | None = None
     russian_market: RussianMarketResult | None = None

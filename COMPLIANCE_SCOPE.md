@@ -66,6 +66,8 @@ The scope includes whether hosting providers are listed in the relevant Russian 
 
 The current MVP does not verify hosting registry status. Future work may expose hosting hints and manual checklist fields without adding external APIs to the MVP.
 
+The current MVP includes `InfrastructureAnalyzer`, which performs a preliminary analysis of third-party infrastructure domains and known service categories such as CDN, analytics, advertising, video, fonts, social, messenger, CRM, payment, maps, and API-like requests. It does not use Whois, GeoIP, RKN APIs, or external APIs, and it does not determine the factual hosting country or data storage location. Findings mean that manual review is required.
+
 ### Russian Language
 
 The scope includes detecting whether the site has Russian-language content or appears oriented toward Russian users.
@@ -83,3 +85,9 @@ The current MVP can classify some social network and messenger links as external
 The current MVP must not be expanded to include PostgreSQL, LLM, Telegram bot functionality, MCP, external registry APIs, background jobs, or persistent check history. Playwright is allowed only as an optional browser infrastructure layer controlled by settings; it must not introduce business logic, risk scoring, screenshots, form submission, or automatic consent actions.
 
 Future analyzers should follow the existing layered architecture: analyzers work from `PageData` or explicit infrastructure outputs, services coordinate results, `RiskService` uses analyzer outputs only, and `ReportService` reports only facts present in `CheckResult`. Browser infrastructure should be used only where static HTML analysis is insufficient and must not contain compliance decisions.
+
+## Final MVP Reporting Scope
+
+The final backend MVP report is a structured preliminary technical report. It summarizes only signals found on checked pages and in collected browser/network data, lists practical recommendations, records the areas actually checked, separates manual-review requirements, and states limitations.
+
+The report must not be treated as a legal conclusion. Automatic checks do not determine factual personal-data storage location, do not verify registry status, do not prove advertising or accessibility compliance, and do not replace a full legal, security, or accessibility audit. Future stages may add packaging, Docker/deployment hardening, report export, and optional frontend/Telegram/MCP surfaces outside this backend MVP.

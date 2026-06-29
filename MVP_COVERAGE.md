@@ -22,6 +22,7 @@ This table maps the extended compliance scope to the current MVP implementation.
 | Hosting provider registry status | No | None | `HostingLocationAnalyzer` with manual inputs or offline evidence; no external API in MVP | Low |
 | Russian-language / Russian-market orientation | Partially | `RussianMarketAnalyzer` | Improve language ratio, Russian legal entity signals, ruble/pricing/context detection | High |
 | External services and resources | Partially | `ExternalServicesAnalyzer`, `RiskService` | Split resource, analytics, CRM widget, CDN, social link, messenger, and auth categories consistently | High |
+| Infrastructure and hosting signals | Partially | `InfrastructureAnalyzer`, `RiskService`, `ReportService` | Improve category confidence and manual evidence grouping; no Whois, GeoIP, or external APIs | Medium |
 | HTTPS and insecure forms | Yes | `HttpsAnalyzer` | Expand mixed-content reporting and certificate metadata if available from existing HTTP response data | High |
 | Mixed content on HTTPS pages | Partially | `HttpsAnalyzer` | Broaden static resource attributes and report severity separately from form security | High |
 | Social networks / channels over 10,000 subscribers | No | `ExternalServicesAnalyzer` only classifies links | Future social-channel checklist; subscriber count and RKN registry status remain manual without external APIs | Manual |
@@ -31,3 +32,11 @@ This table maps the extended compliance scope to the current MVP implementation.
 ## MVP Boundary
 
 The current MVP is a synchronous backend pre-check. It should not be expanded by this documentation update. New checks listed above belong to future iterations and must respect `PROJECT_RULES.md`.
+
+## Final Backend MVP
+
+The backend MVP performs a preliminary technical check of a site using the implemented services and analyzers: URL normalization, availability, crawl, optional browser check, cookies and cookie interaction, advertising, accessibility, infrastructure, owner requisites, domain applicability, external services, security, Russian-market signals, risk scoring, and structured reporting.
+
+The structured report contains short findings, recommendations, checked areas, manual-review items, and limitations. It is not a legal opinion and does not confirm or exclude violations. It does not use LLM, Telegram, MCP, database, Redis, Celery, external APIs, Whois, or GeoIP.
+
+Future work after the backend MVP should focus on packaging, Docker/deployment hardening, exportable reports, and later optional product surfaces such as frontend, Telegram, or MCP.

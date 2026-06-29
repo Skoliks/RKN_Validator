@@ -11,6 +11,7 @@ from app.analyzers import (
     ExternalServicesAnalyzer,
     FormAnalyzer,
     HttpsAnalyzer,
+    InfrastructureAnalyzer,
     OwnerRequisitesAnalyzer,
     PolicyAnalyzer,
     RussianMarketAnalyzer,
@@ -45,6 +46,7 @@ class CheckService:
         advertising_analyzer: AdvertisingAnalyzer | None = None,
         auth_provider_analyzer: AuthProviderAnalyzer | None = None,
         https_analyzer: HttpsAnalyzer | None = None,
+        infrastructure_analyzer: InfrastructureAnalyzer | None = None,
         owner_requisites_analyzer: OwnerRequisitesAnalyzer | None = None,
         russian_market_analyzer: RussianMarketAnalyzer | None = None,
         browser_check_service: BrowserCheckService | None = None,
@@ -64,6 +66,7 @@ class CheckService:
         self.advertising_analyzer = advertising_analyzer or AdvertisingAnalyzer()
         self.auth_provider_analyzer = auth_provider_analyzer or AuthProviderAnalyzer()
         self.https_analyzer = https_analyzer or HttpsAnalyzer()
+        self.infrastructure_analyzer = infrastructure_analyzer or InfrastructureAnalyzer()
         self.owner_requisites_analyzer = owner_requisites_analyzer or OwnerRequisitesAnalyzer()
         self.russian_market_analyzer = russian_market_analyzer or RussianMarketAnalyzer()
         self.browser_check_service = browser_check_service or BrowserCheckService()
@@ -133,6 +136,14 @@ class CheckService:
             external_services=external_services,
             browser_check=browser_check,
         )
+        infrastructure = self.infrastructure_analyzer.analyze(
+            site=site,
+            pages=pages_data,
+            external_services=external_services,
+            browser_check=browser_check,
+            cookies=cookies,
+            advertising=advertising,
+        )
 
         status = "partial" if crawl.warnings else "completed"
         check_meta = self._check_meta(status=status, started_at=started_at)
@@ -146,6 +157,7 @@ class CheckService:
             cookies=cookies,
             advertising=advertising,
             accessibility=accessibility,
+            infrastructure=infrastructure,
             check=check_meta,
         )
         result = CheckResult(
@@ -157,6 +169,7 @@ class CheckService:
             cookies=cookies,
             advertising=advertising,
             accessibility=accessibility,
+            infrastructure=infrastructure,
             pages=self._to_pages_result(pages_data),
             owner_requisites=owner_requisites,
             russian_market=russian_market,

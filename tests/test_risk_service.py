@@ -1,11 +1,14 @@
 from datetime import UTC, datetime
 
+from app.schemas.accessibility import AccessibilityAnalysisResult, AccessibilityIssueItem
+from app.schemas.advertising import AdvertisingAnalysisResult, AdvertisingServiceItem
 from app.schemas.authentication import AuthenticationResult, AuthProviderItem
 from app.schemas.check import CheckMeta
 from app.schemas.consents import ConsentItem, ConsentsResult
 from app.schemas.cookies import CookieAnalysisResult, CookieBeforeConsentItem, CookieNetworkRequestItem
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormField, FormItem, FormsResult
+from app.schemas.infrastructure import InfrastructureAnalysisResult, InfrastructureDomainItem
 from app.schemas.policy import PolicyMatchedLink, PolicyResult
 from app.schemas.security import InsecureFormAction, SecurityResult
 from app.services.risk_service import RiskService
@@ -271,7 +274,98 @@ def test_service_evidence_does_not_contain_duplicates_after_html_unescape() -> N
     )
 
     factor = next(factor for factor in result.factors if factor.code == "external_resource_detected")
-    assert factor.evidence == ["https://partner.example.com/widget?a=1&b=2"]
+    assert factor.evidence == ["https://partner.example.com/widget"]
+
+
+def test_risk_assessment_consistency_limits_score_evidence_and_factor_codes() -> None:
+    result = RiskService().assess(
+        cookies=CookieAnalysisResult(
+            browser_check_available=True,
+            analyzed=True,
+            banner_found=False,
+            cookies_before_consent_found=True,
+            third_party_cookies_before_consent_found=True,
+            analytics_requests_before_consent_found=True,
+            advertising_requests_before_consent_found=True,
+            requests_before_consent=[
+                CookieNetworkRequestItem(
+                    url=f"https://doubleclick.net/activity?id={index}&payload=long",
+                    domain="doubleclick.net",
+                    category="advertising",
+                    is_third_party=True,
+                )
+                for index in range(10)
+            ],
+        ),
+        advertising=AdvertisingAnalysisResult(
+            found=True,
+            ad_services_found=True,
+            erid_found=False,
+            ad_marking_found=False,
+            services=[
+                AdvertisingServiceItem(
+                    service_type="advertising",
+                    provider="Google DoubleClick",
+                    url=f"https://googleads.g.doubleclick.net/pagead/id?slot={index}",
+                    domain="googleads.g.doubleclick.net",
+                    source="browser_network",
+                )
+                for index in range(10)
+            ],
+        ),
+        infrastructure=InfrastructureAnalysisResult(
+            checked=True,
+            external_domains_found=True,
+            foreign_services_found=True,
+            domains=[
+                InfrastructureDomainItem(
+                    domain=f"cdn{index}.example.com",
+                    category="cdn",
+                    is_third_party=True,
+                    likely_foreign=True,
+                    source="browser_network",
+                )
+                for index in range(10)
+            ],
+        ),
+        check=make_check(),
+    )
+
+    assert result.total_score <= 100
+    assert result.level not in {"high", "critical"}
+    codes = [factor.code for factor in result.factors]
+    assert len(codes) == len(set(codes))
+    for factor in result.factors:
+        assert len(factor.evidence) <= 5
+        assert all("?" not in item for item in factor.evidence)
+
+
+def test_risk_evidence_does_not_include_large_data_images() -> None:
+    result = RiskService().assess(
+        accessibility=AccessibilityAnalysisResult(
+            checked=True,
+            issues_found=True,
+            missing_alt_count=1,
+            items=[
+                AccessibilityIssueItem(
+                    issue_type="missing_image_alt",
+                    page_url="https://example.ru",
+                    element="img",
+                    evidence="data:image/png;base64," + ("a" * 500),
+                    severity="medium",
+                )
+            ],
+        ),
+        check=make_check(),
+    )
+
+    factor = next(
+        factor
+        for factor in result.factors
+        if factor.code == "accessibility_medium_issues_detected"
+    )
+
+    assert factor.evidence == ["missing_image_alt: inline data image"]
 
 
 def test_foreign_auth_escalates_to_high() -> None:

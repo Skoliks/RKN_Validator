@@ -20,6 +20,10 @@ from tests.test_report_service import make_check_result
 from tests.test_risk_service import factor_codes, make_check
 
 
+def summary_text(report) -> str:
+    return " ".join(report.summary)
+
+
 class FakeAvailabilityService:
     async def check(self, site: SiteInfo) -> AvailabilityInfo:
         return AvailabilityInfo(available=True, status_code=200, message="Сайт доступен.")
@@ -240,7 +244,7 @@ def test_report_mentions_reject_button_not_found() -> None:
         )
     )
 
-    assert "Явная кнопка отклонения cookie не была найдена автоматически" in report.summary
+    assert "Явная кнопка отклонения cookie не была найдена автоматически" in summary_text(report)
 
 
 def test_report_mentions_tracking_not_reduced_after_reject() -> None:
@@ -255,7 +259,7 @@ def test_report_mentions_tracking_not_reduced_after_reject() -> None:
         )
     )
 
-    assert "не зафиксировано заметного снижения cookies или запросов" in report.summary
+    assert "не зафиксировано заметного снижения cookies или запросов" in summary_text(report)
 
 
 @pytest.mark.asyncio

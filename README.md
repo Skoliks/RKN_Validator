@@ -91,6 +91,8 @@ ENABLE_COOKIE_INTERACTION_CHECK=true
 
 `AccessibilityAnalyzer` adds a separate `accessibility` block. It performs a preliminary technical check of crawled HTML for missing `html lang`, image `alt`, empty links/buttons, missing form labels, iframe titles, heading-order warnings, and duplicate `id` values. It does not replace a full accessibility audit and does not make legal conclusions; findings require manual review.
 
+`InfrastructureAnalyzer` adds a separate `infrastructure` block. It performs a preliminary analysis of third-party infrastructure domains and known service categories such as CDN, analytics, advertising, video, fonts, social, messenger, CRM, payment, maps, and API-like requests. It does not use Whois, GeoIP, RKN APIs, or external APIs, and it does not determine the factual hosting country or data storage location; findings require manual review.
+
 ## Примеры запросов
 
 Healthcheck:
@@ -136,3 +138,19 @@ curl -X POST http://127.0.0.1:8000/check \
 ```powershell
 venv\Scripts\python.exe -m pytest
 ```
+
+## Final backend MVP report
+
+The backend MVP now returns a structured `report` block in `POST /check`:
+
+- `summary`: short ordered findings.
+- `recommendations`: practical manual-review actions.
+- `checked_areas`: areas that were actually checked.
+- `manual_review_required`: items that need human confirmation.
+- `limitations`: stable limitations of the automatic pre-check.
+
+The implemented backend analyzers and services include `UrlService`, `AvailabilityService`, `CrawlService`, optional `BrowserClient`, `CookieAnalyzer`, cookie interaction check, `AdvertisingAnalyzer`, `AccessibilityAnalyzer`, `InfrastructureAnalyzer`, `OwnerRequisitesAnalyzer`, `DomainComplianceAnalyzer`, `ExternalServicesAnalyzer`, `RiskService`, `ReportService`, and `POST /check`.
+
+The result is a preliminary technical review only. It is not a legal opinion, does not determine factual personal-data storage location, does not use Whois/GeoIP/RKN/external APIs, and requires manual review for legal or operational conclusions.
+
+Next stages are packaging, Docker hardening, report export, and later optional frontend, Telegram, or MCP surfaces outside the backend MVP.

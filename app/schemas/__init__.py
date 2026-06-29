@@ -26,6 +26,11 @@ from app.schemas.cookies import (
 from app.schemas.domain_compliance import DomainComplianceResult
 from app.schemas.external_services import ExternalServiceItem, ExternalServicesResult
 from app.schemas.forms import FormField, FormItem, FormsResult
+from app.schemas.infrastructure import (
+    InfrastructureAnalysisResult,
+    InfrastructureDomainItem,
+    InfrastructureServiceItem,
+)
 from app.schemas.owner_requisites import OwnerRequisiteItem, OwnerRequisitesResult
 from app.schemas.pages import CrawlResult, PageData, PageItem, PagesResult, WarningItem
 from app.schemas.policy import PolicyMatchedLink, PolicyResult
@@ -68,6 +73,9 @@ __all__ = [
     "FormItem",
     "FormsResult",
     "InsecureFormAction",
+    "InfrastructureAnalysisResult",
+    "InfrastructureDomainItem",
+    "InfrastructureServiceItem",
     "OwnerRequisiteItem",
     "OwnerRequisitesResult",
     "PageData",

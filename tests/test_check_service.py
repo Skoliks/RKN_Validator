@@ -7,6 +7,10 @@ from app.services.availability_service import UNAVAILABLE_MESSAGE
 from app.services.check_service import CheckService
 
 
+def summary_text(report) -> str:
+    return " ".join(report.summary)
+
+
 class FakeAvailabilityService:
     def __init__(self, result: AvailabilityInfo) -> None:
         self.result = result
@@ -131,7 +135,7 @@ async def test_check_service_site_unavailable() -> None:
     assert result.availability.error_type == "site_unavailable"
     assert result.availability.message == UNAVAILABLE_MESSAGE
     assert result.report is not None
-    assert UNAVAILABLE_MESSAGE in result.report.summary
+    assert UNAVAILABLE_MESSAGE in summary_text(result.report)
 
 
 @pytest.mark.asyncio
@@ -186,7 +190,10 @@ async def test_check_service_site_with_google_tag_manager() -> None:
     assert "foreign_analytics_detected" in {
         factor.code for factor in result.risk_assessment.factors
     }
-    assert result.risk_assessment.level == "low"
+    assert "analytics_infrastructure_detected" in {
+        factor.code for factor in result.risk_assessment.factors
+    }
+    assert result.risk_assessment.level == "medium"
 
 
 @pytest.mark.asyncio

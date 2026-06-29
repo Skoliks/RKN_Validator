@@ -4,314 +4,343 @@ from app.schemas.risk import RiskFactor
 
 
 class ReportService:
+    summary_item_limit = 12
     failed_default_message = "Проверку выполнить не удалось."
     level_labels = {
         "low": "низкий",
         "medium": "средний",
         "high": "высокий",
-    }
-    factor_labels = {
-        "personal_data_collection_detected": "обнаружены формы, которые могут собирать персональные данные",
-        "privacy_policy_not_found": "не найдена политика обработки персональных данных",
-        "privacy_policy_unavailable": "ссылка на политику найдена, но документ недоступен",
-        "forms_without_consent": "для части форм не найдены признаки согласия на обработку данных",
-        "foreign_analytics_detected": "найдены иностранные аналитические сервисы",
-        "external_resource_detected": "найдены подключаемые внешние ресурсы, требующие ручной проверки",
-        "foreign_auth_detected": "найдены признаки авторизации через внешний сервис",
-        "site_without_https": "часть страниц доступна без HTTPS",
-        "forms_submit_over_http": "форма с возможным сбором данных отправляется по HTTP",
-        "cookie_banner_not_found": "cookie-баннер не найден или не распознан автоматически при наличии cookie-признаков",
-        "cookies_before_consent_detected": "обнаружены признаки cookies или аналитических запросов до выбора пользователя",
-        "advertising_before_consent_detected": "обнаружены запросы к рекламным сервисам до выбора пользователя",
-        "cookie_reject_button_not_found": "явная кнопка отклонения cookie не найдена автоматически",
-        "cookie_reject_did_not_reduce_tracking": "после отклонения не зафиксировано заметного снижения tracking-запросов",
-        "partial_check": "проверка выполнена частично",
+        "critical": "критический",
     }
 
     def build(self, check_result: CheckResult) -> ReportResult:
         if check_result.check.status == "failed":
+            summary = self._failed_summary(check_result)
+            recommendations = [
+                "Проверить корректность адреса и доступность сайта, затем повторить проверку."
+            ]
+            limitations = self._build_limitations(check_result)
             return ReportResult(
-                summary=self._failed_summary(check_result),
-                recommendation=(
-                    "Рекомендуется проверить корректность адреса и доступность сайта, "
-                    "затем повторить проверку."
-                ),
+                summary=summary,
+                recommendations=recommendations,
+                recommendation=" ".join(recommendations),
+                checked_areas=self._build_checked_areas(check_result),
+                manual_review_required=[
+                    "Исходные данные и доступность сайта требуют ручной проверки."
+                ],
+                limitations=limitations,
                 llm_generated=False,
             )
 
+        recommendations = self._build_recommendations(check_result)
         return ReportResult(
             summary=self._build_summary(check_result),
-            recommendation=self._build_recommendation(check_result),
+            recommendations=recommendations,
+            recommendation=" ".join(recommendations),
+            checked_areas=self._build_checked_areas(check_result),
+            manual_review_required=self._build_manual_review_required(check_result),
+            limitations=self._build_limitations(check_result),
             llm_generated=False,
         )
 
-    def _failed_summary(self, check_result: CheckResult) -> str:
+    def _failed_summary(self, check_result: CheckResult) -> list[str]:
         reason = (
             check_result.availability.message
             if check_result.availability and check_result.availability.message
             else self.failed_default_message
         )
-        return (
-            f"{reason} Проверка завершилась со статусом failed. "
-            "Рекомендуется ручная проверка исходных данных."
+        return self._dedupe_text(
+            [
+                reason,
+                "Проверка завершилась со статусом failed.",
+                "Рекомендуется ручная проверка исходных данных.",
+            ]
         )
 
-    def _build_summary(self, check_result: CheckResult) -> str:
-        sentences: list[str] = []
+    def _build_summary(self, check_result: CheckResult) -> list[str]:
+        items: list[str] = []
         risk = check_result.risk_assessment
 
         if check_result.check.status == "partial":
-            sentences.append(
+            items.append(
                 "Проверка выполнена частично, поэтому часть признаков могла быть не проверена."
             )
-
-        if check_result.availability and check_result.availability.available:
-            sentences.append("Сайт был доступен на момент технической проверки.")
+        elif check_result.availability and check_result.availability.available:
+            items.append("Сайт был доступен на момент технической проверки.")
 
         if check_result.pages:
             page_word = self._page_word(check_result.pages.total_checked)
-            sentences.append(
-                f"Проверено {check_result.pages.total_checked} {page_word} "
-                f"из {check_result.pages.total_found} найденных."
-            )
-
-        if check_result.forms and check_result.forms.found:
-            sentences.append(
-                "Обнаружены формы, которые могут собирать данные пользователей."
-            )
-        elif check_result.forms is not None:
-            sentences.append("На проверенных страницах формы сбора данных не найдены.")
-
-        if check_result.accessibility:
-            if check_result.accessibility.issues_found:
-                sentences.append(
-                    "Обнаружены признаки возможных технических проблем доступности; требуется ручная проверка."
-                )
-                if check_result.accessibility.missing_alt_count > 0:
-                    sentences.append(
-                        "На проверенных страницах найдены изображения без атрибута alt."
-                    )
-                if (
-                    check_result.accessibility.empty_links_count > 0
-                    or check_result.accessibility.empty_buttons_count > 0
-                ):
-                    sentences.append(
-                        "Найдены ссылки или кнопки без доступного текстового описания."
-                    )
-                if check_result.accessibility.missing_input_labels_count > 0:
-                    sentences.append("Найдены поля форм без автоматически определённой подписи.")
-            else:
-                sentences.append(
-                    "Явные технические замечания по доступности на проверенных страницах не найдены."
-                )
-
-        if check_result.advertising:
-            if check_result.advertising.ad_services_found:
-                sentences.append("Обнаружены признаки подключения рекламных сервисов.")
-                if not check_result.advertising.erid_found:
-                    sentences.append(
-                        "На проверенных страницах не найден erid; требуется ручная проверка рекламных материалов."
-                    )
-                if not check_result.advertising.ad_marking_found:
-                    sentences.append("Явная маркировка рекламы не была найдена автоматически.")
-            elif not check_result.advertising.found:
-                sentences.append("Явные рекламные признаки на проверенных страницах не найдены.")
-
-        if check_result.cookies and check_result.cookies.analyzed:
-            if check_result.cookies.cookies_before_consent_found:
-                sentences.append(
-                    "На момент браузерной проверки обнаружены cookies после первичной загрузки страницы до явного выбора пользователя."
-                )
-            if (
-                check_result.cookies.analytics_requests_before_consent_found
-                or check_result.cookies.advertising_requests_before_consent_found
-            ):
-                sentences.append(
-                    "Также обнаружены запросы к аналитическим или рекламным сервисам до явного выбора пользователя."
-                )
-            if not check_result.cookies.banner_found:
-                sentences.append(
-                    "Cookie-баннер не был найден или не был распознан автоматически; требуется ручная проверка."
-                )
-            if check_result.cookies.interaction_available and not check_result.cookies.reject_button_found:
-                sentences.append(
-                    "Явная кнопка отклонения cookie не была найдена автоматически; требуется ручная проверка."
-                )
-            if check_result.cookies.reject_test_performed:
-                if (
-                    check_result.cookies.analytics_reduced_after_reject is False
-                    or check_result.cookies.advertising_reduced_after_reject is False
-                ):
-                    sentences.append(
-                        "После нажатия кнопки отклонения не зафиксировано заметного снижения cookies или запросов к сервисам отслеживания; требуется ручная проверка."
-                    )
-                elif (
-                    check_result.cookies.cookies_reduced_after_reject
-                    or check_result.cookies.analytics_reduced_after_reject
-                    or check_result.cookies.advertising_reduced_after_reject
-                ):
-                    sentences.append(
-                        "После нажатия кнопки отклонения количество cookies или запросов к сервисам отслеживания уменьшилось."
-                    )
-
-        if check_result.domain_compliance:
-            if check_result.domain_compliance.applies_to_domain_zone:
-                sentences.append(
-                    "Домен находится в зоне, для которой требуется ручная проверка идентификации администратора через ЕСИА."
-                )
-            elif check_result.domain_compliance.status == "not_applicable":
-                sentences.append(
-                    "Требование идентификации администратора через ЕСИА к данной доменной зоне не применяется."
-                )
-
-        if check_result.owner_requisites and check_result.owner_requisites.found:
-            if check_result.owner_requisites.inn and check_result.owner_requisites.ogrn:
-                sentences.append("На проверенных страницах найдены ИНН и ОГРН владельца сайта.")
-            else:
-                sentences.append("На проверенных страницах найдены отдельные реквизиты владельца сайта.")
-        elif check_result.owner_requisites is not None:
-            sentences.append(
-                "На проверенных страницах не удалось автоматически выделить реквизиты владельца сайта."
-            )
-
-        if check_result.policy and check_result.policy.found:
-            sentences.append(
-                "Найдена ссылка на документ, связанный с конфиденциальностью и обработкой персональной информации."
-            )
-        elif check_result.policy and check_result.policy.candidates:
-            sentences.append(
-                "Найдены страницы, похожие на документ политики обработки персональных данных; "
-                "нужна ручная проверка содержания."
-            )
-        elif check_result.policy is not None:
-            sentences.append(
-                "На проверенных страницах ссылка на политику обработки персональных данных не найдена."
-            )
-
-        if check_result.security and check_result.security.has_mixed_content:
-            sentences.append(
-                "Также обнаружено подключение ресурса по незащищённому протоколу HTTP на HTTPS-странице."
+            items.append(
+                f"Проверено {check_result.pages.total_checked} {page_word} из {check_result.pages.total_found} найденных."
             )
 
         if risk:
-            level = self._level_label(risk.level)
-            sentences.append(
-                f"Техническая оценка показывает {level} уровень потенциального риска "
-                f"при сумме {risk.total_score} из 100."
+            level = self.level_labels.get(risk.level, risk.level)
+            items.append(
+                f"Техническая оценка показывает {level} уровень потенциального риска при сумме {risk.total_score} из 100."
             )
-            factor_text = self._factor_text(risk.factors)
-            if factor_text:
-                sentences.append(f"Основные признаки: {factor_text}.")
 
-        if self._has_only_external_services_without_forms(check_result):
-            sentences.append(
-                "Риск низкий, но найденные сторонние сервисы рекомендуется проверить вручную."
+        cookies = check_result.cookies
+        if cookies and cookies.analyzed:
+            if cookies.cookies_before_consent_found:
+                items.append(
+                    "На момент браузерной проверки обнаружены cookies после первичной загрузки страницы до явного выбора пользователя."
+                )
+            if not cookies.banner_found:
+                items.append(
+                    "Cookie-баннер не был найден или не был распознан автоматически; требуется ручная проверка."
+                )
+            if cookies.interaction_available and not cookies.reject_button_found:
+                items.append(
+                    "Явная кнопка отклонения cookie не была найдена автоматически; требуется ручная проверка."
+                )
+            if cookies.reject_test_performed and (
+                cookies.analytics_reduced_after_reject is False
+                or cookies.advertising_reduced_after_reject is False
+            ):
+                items.append(
+                    "После нажатия кнопки отклонения не зафиксировано заметного снижения cookies или запросов к сервисам отслеживания; требуется ручная проверка."
+                )
+
+        advertising = check_result.advertising
+        if advertising:
+            if advertising.ad_services_found:
+                items.append("Обнаружены признаки подключения рекламных сервисов.")
+                if not advertising.erid_found:
+                    items.append(
+                        "На проверенных страницах не найден erid; требуется ручная проверка рекламных материалов."
+                    )
+                if not advertising.ad_marking_found:
+                    items.append("Явная маркировка рекламы не была найдена автоматически.")
+            elif not advertising.found:
+                items.append("Явные рекламные признаки на проверенных страницах не найдены.")
+
+        infrastructure = check_result.infrastructure
+        if infrastructure:
+            if infrastructure.external_domains_found:
+                items.append("Обнаружены сторонние домены и внешние инфраструктурные сервисы.")
+                if infrastructure.foreign_services_found:
+                    items.append(
+                        "Обнаружены признаки использования иностранных сервисов; требуется ручная проверка условий передачи и обработки данных."
+                    )
+            elif infrastructure.checked:
+                items.append(
+                    "Явные сторонние инфраструктурные домены на проверенных страницах не найдены."
+                )
+
+        accessibility = check_result.accessibility
+        if accessibility:
+            if accessibility.issues_found:
+                items.append(
+                    "Обнаружены признаки возможных технических проблем доступности; требуется ручная проверка."
+                )
+            else:
+                items.append(
+                    "Явные технические замечания по доступности на проверенных страницах не найдены."
+                )
+
+        if check_result.security and check_result.security.has_mixed_content:
+            items.append(
+                "Обнаружены признаки смешанного содержимого: часть ресурсов запрашивается по небезопасному HTTP."
             )
-        elif check_result.external_services and check_result.external_services.found:
-            sentences.append("Также обнаружены признаки использования сторонних сервисов.")
 
-        if not sentences:
-            sentences.append(
+        owner = check_result.owner_requisites
+        if owner:
+            if owner.found:
+                items.append("На проверенных страницах обнаружены реквизиты владельца сайта.")
+            if not owner.privacy_email_found:
+                items.append(
+                    "Отдельный e-mail для обращений по персональным данным не найден автоматически."
+                )
+
+        domain = check_result.domain_compliance
+        if domain and domain.status == "not_applicable":
+            items.append(
+                "Требование идентификации администратора через ЕСИА к данной доменной зоне не применяется."
+            )
+
+        if not items:
+            items.append(
                 "По переданным результатам проверки значимые признаки не обнаружены."
             )
 
-        sentences.append("Рекомендуется ручная проверка для подтверждения выводов.")
-        return " ".join(sentences[:12])
+        return self._dedupe_text(items)[: self.summary_item_limit]
 
-    def _build_recommendation(self, check_result: CheckResult) -> str:
-        risk = check_result.risk_assessment
-        level = risk.level if risk else "low"
-        factor_codes = {factor.code for factor in risk.factors} if risk else set()
+    def _build_recommendations(self, check_result: CheckResult) -> list[str]:
+        items: list[str] = []
 
-        if self._has_only_external_services_without_forms(check_result):
-            return self._with_privacy_email_recommendation(
-                check_result,
-                "Общий риск низкий. Рекомендуется вручную проверить назначение "
-                "сторонних сервисов и условия передачи данных.",
+        cookies = check_result.cookies
+        if cookies and cookies.analyzed and (
+            cookies.cookies_before_consent_found
+            or not cookies.banner_found
+            or (cookies.interaction_available and not cookies.reject_button_found)
+        ):
+            items.append(
+                "Проверить наличие и содержание cookie-баннера, включая возможность отклонения необязательных cookies."
             )
 
-        if level == "high":
-            return self._with_privacy_email_recommendation(
-                check_result,
-                "Рекомендуется провести ручную проверку и доработать документы, формы "
-                "и сторонние сервисы по найденным признакам. Особое внимание стоит "
-                "уделить передаче данных через формы и внешним провайдерам.",
+        advertising = check_result.advertising
+        if advertising and advertising.ad_services_found and (
+            not advertising.erid_found or not advertising.ad_marking_found
+        ):
+            items.append("Проверить рекламные материалы, erid и маркировку рекламы вручную.")
+
+        infrastructure = check_result.infrastructure
+        if infrastructure and (
+            infrastructure.external_domains_found
+            or infrastructure.foreign_services_found
+            or infrastructure.analytics_services_found
+        ):
+            items.append(
+                "Проверить условия обработки и передачи данных при использовании сторонних сервисов."
+            )
+        elif check_result.external_services and check_result.external_services.found:
+            items.append(
+                "Проверить условия обработки и передачи данных при использовании сторонних сервисов."
             )
 
-        if level == "medium":
-            if {
-                "accessibility_medium_issues_detected",
-                "accessibility_low_issues_detected",
-            } & factor_codes:
-                return self._with_privacy_email_recommendation(
-                    check_result,
-                    "Рекомендуется вручную проверить найденные технические замечания по доступности. "
-                    "Автоматическая проверка не заменяет полноценный аудит доступности.",
-                )
-            if {
-                "advertising_service_without_erid",
-                "advertising_service_without_label",
-                "possible_ad_blocks_detected",
-            } & factor_codes:
-                return self._with_privacy_email_recommendation(
-                    check_result,
-                    "Рекомендуется вручную проверить рекламные материалы, найденные рекламные сервисы, erid и маркировку рекламы. "
-                    "Автоматическая проверка не подтверждает и не исключает нарушение.",
-                )
-            if "foreign_analytics_detected" in factor_codes or "external_resource_detected" in factor_codes:
-                return self._with_privacy_email_recommendation(
-                    check_result,
-                    "Рекомендуется вручную проверить замечания по сторонним сервисам "
-                    "и документам сайта.",
-                )
-            return self._with_privacy_email_recommendation(
-                check_result,
-                "Рекомендуется вручную проверить найденные замечания и при необходимости "
-                "уточнить документы сайта.",
+        accessibility = check_result.accessibility
+        if accessibility and accessibility.issues_found:
+            items.append("Проверить найденные технические замечания по доступности.")
+
+        if check_result.security and check_result.security.has_mixed_content:
+            items.append("Проверить mixed content и заменить HTTP-ресурсы на HTTPS.")
+
+        owner = check_result.owner_requisites
+        if owner and not owner.privacy_email_found:
+            items.append(
+                "Проверить наличие отдельного контактного адреса для обращений субъектов персональных данных."
             )
 
-        return self._with_privacy_email_recommendation(
-            check_result,
-            "Рекомендуется периодически повторять проверку и отслеживать изменения форм, "
-            "документов и сторонних сервисов.",
-        )
+        if check_result.policy and (not check_result.policy.found or check_result.policy.candidates):
+            items.append(
+                "Проверить содержание политики конфиденциальности и согласий на обработку персональных данных."
+            )
 
-    def _with_privacy_email_recommendation(
-        self,
-        check_result: CheckResult,
-        recommendation: str,
-    ) -> str:
-        owner_requisites = check_result.owner_requisites
-        if owner_requisites is None or owner_requisites.privacy_email_found:
-            return recommendation
-        return (
-            f"{recommendation} Рекомендуется вручную проверить наличие отдельного e-mail "
-            "для запросов субъектов персональных данных."
-        )
+        if not items:
+            items.append(
+                "Периодически повторять проверку и отслеживать изменения форм, документов и сторонних сервисов."
+            )
 
-    def _level_label(self, level: str) -> str:
-        return self.level_labels.get(level, level)
+        return self._dedupe_text(items)
+
+    def _build_checked_areas(self, check_result: CheckResult) -> list[str]:
+        items: list[str] = []
+
+        if check_result.availability is not None:
+            items.append("Доступность сайта")
+        if check_result.domain_compliance is not None:
+            items.append("Доменная зона")
+        if check_result.security is not None:
+            items.append("HTTPS и mixed content")
+        if check_result.forms is not None:
+            items.append("Формы и признаки сбора данных")
+        if check_result.policy is not None:
+            items.append("Политика конфиденциальности")
+        if check_result.browser_check and check_result.browser_check.performed:
+            items.append("Браузерная проверка страницы")
+            items.append("Cookie и сетевые запросы до явного выбора пользователя")
+            if (
+                check_result.browser_check.cookie_interaction
+                and check_result.browser_check.cookie_interaction.enabled
+            ):
+                items.append("Cookie interaction check")
+        if check_result.advertising is not None:
+            items.append("Рекламные признаки")
+        if check_result.accessibility is not None and check_result.accessibility.checked:
+            items.append("Базовая техническая доступность")
+        if check_result.infrastructure is not None and check_result.infrastructure.checked:
+            items.append("Внешняя инфраструктура и сторонние домены")
+        if check_result.owner_requisites is not None:
+            items.append("Реквизиты владельца")
+        if check_result.external_services is not None:
+            items.append("Внешние сервисы")
+        if check_result.russian_market is not None:
+            items.append("Признаки российского рынка")
+
+        return self._dedupe_text(items)
+
+    def _build_manual_review_required(self, check_result: CheckResult) -> list[str]:
+        items: list[str] = []
+
+        if check_result.policy is not None or check_result.forms is not None:
+            items.append(
+                "Содержание политики конфиденциальности и согласий на обработку персональных данных."
+            )
+
+        cookies = check_result.cookies
+        if cookies and cookies.analyzed and (
+            cookies.cookies_before_consent_found
+            or cookies.analytics_requests_before_consent_found
+            or cookies.advertising_requests_before_consent_found
+        ):
+            items.append("Назначение cookies и сторонних сетевых запросов.")
+        if cookies and cookies.analyzed and (
+            not cookies.banner_found
+            or (cookies.interaction_available and not cookies.reject_button_found)
+        ):
+            items.append("Наличие возможности отклонить необязательные cookies.")
+
+        advertising = check_result.advertising
+        if advertising and advertising.ad_services_found:
+            items.append("Маркировка рекламных материалов и erid.")
+
+        infrastructure = check_result.infrastructure
+        if infrastructure and infrastructure.external_domains_found:
+            items.append("Условия передачи данных сторонним сервисам.")
+        if infrastructure and infrastructure.foreign_services_found:
+            items.append("Фактическое место хранения и обработки персональных данных.")
+
+        accessibility = check_result.accessibility
+        if accessibility and accessibility.issues_found:
+            items.append("Доступность интерфейса по требованиям применимого стандарта.")
+
+        owner = check_result.owner_requisites
+        if owner and not owner.privacy_email_found:
+            items.append(
+                "Наличие отдельного контактного адреса для обращений субъектов персональных данных."
+            )
+
+        return self._dedupe_text(items)
+
+    def _build_limitations(self, check_result: CheckResult) -> list[str]:
+        items = [
+            "Автоматическая проверка не является юридическим заключением.",
+            "Результат основан только на проверенных страницах и данных, доступных на момент проверки.",
+            "Сервис не определяет фактическое место хранения персональных данных без внешних подтверждающих источников.",
+            "Проверка доступности не заменяет полноценный аудит по профильному стандарту.",
+        ]
+        if check_result.browser_check and check_result.browser_check.performed:
+            items.append(
+                "Браузерная проверка может отличаться в зависимости от региона, устройства, сессии и состояния сайта."
+            )
+        else:
+            items.append(
+                "Браузерная проверка не выполнялась, поэтому cookies, динамические запросы и часть сторонних сервисов могли быть не обнаружены."
+            )
+        return self._dedupe_text(items)
 
     def _factor_text(self, factors: list[RiskFactor]) -> str:
         labels: list[str] = []
         seen: set[str] = set()
         for factor in factors[:3]:
-            label = factor.message or self.factor_labels.get(factor.code, factor.code)
-            label = label.strip().rstrip(".")
+            label = (factor.message or factor.code).strip().rstrip(".")
             if not label or label in seen:
                 continue
-
             seen.add(label)
             labels.append(label)
-
         return "; ".join(labels)
 
-    def _has_only_external_services_without_forms(self, check_result: CheckResult) -> bool:
-        has_forms = bool(check_result.forms and check_result.forms.found)
-        has_external = bool(check_result.external_services and check_result.external_services.found)
-        has_auth = bool(check_result.authentication and check_result.authentication.found)
-        risk_level = check_result.risk_assessment.level if check_result.risk_assessment else "low"
-        return has_external and not has_forms and not has_auth and risk_level == "low"
+    def _dedupe_text(self, items: list[str]) -> list[str]:
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for item in items:
+            normalized = item.strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            deduped.append(normalized)
+        return deduped
 
     def _page_word(self, count: int) -> str:
         if count % 10 == 1 and count % 100 != 11:
