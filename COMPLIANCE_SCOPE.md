@@ -52,7 +52,7 @@ The current MVP does not query external registries or APIs. Future support may a
 
 The scope includes internet advertising labeling: visible "advertising" markers, advertiser identification, and ERID tokens where applicable.
 
-The current MVP does not classify advertising placements or verify ERID. Future static checks may detect obvious `erid` parameters and ad labels, with manual review for context.
+The current MVP includes `AdvertisingAnalyzer`, which performs a preliminary automatic check for advertising services, visible advertising labels, advertiser mentions, `erid` tokens, and possible ad blocks on crawled pages. It uses already collected HTML, `ExternalServicesAnalyzer` output, and optional browser network data. It does not classify materials legally, does not verify ERID validity, and does not state that advertising is unlawful or incorrectly marked. Findings mean that manual review is required.
 
 ### Accessibility
 

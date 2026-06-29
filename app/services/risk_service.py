@@ -1,5 +1,6 @@
 from html import unescape
 
+from app.schemas.advertising import AdvertisingAnalysisResult
 from app.schemas.authentication import AuthenticationResult
 from app.schemas.check import CheckMeta
 from app.schemas.consents import ConsentsResult
@@ -32,6 +33,7 @@ class RiskService:
         authentication: AuthenticationResult | None = None,
         security: SecurityResult | None = None,
         cookies: CookieAnalysisResult | None = None,
+        advertising: AdvertisingAnalysisResult | None = None,
         check: CheckMeta | str | None = None,
         policy_available: bool | None = None,
     ) -> RiskAssessment:
@@ -145,6 +147,7 @@ class RiskService:
 
         cookie_factors = self._cookie_factors(cookies)
         factors.extend(cookie_factors)
+        factors.extend(self._advertising_factors(advertising))
 
         if self._check_status(check) == "partial":
             factors.append(
@@ -361,6 +364,58 @@ class RiskService:
                         "advertising_reduced_after_reject=false"
                         if cookies.advertising_reduced_after_reject is False
                         else "",
+                    ],
+                )
+            )
+
+        return factors
+
+    def _advertising_factors(
+        self,
+        advertising: AdvertisingAnalysisResult | None,
+    ) -> list[RiskFactor]:
+        if not advertising or not advertising.found:
+            return []
+
+        factors: list[RiskFactor] = []
+        service_evidence = [service.url for service in advertising.services]
+        if advertising.ad_services_found and not advertising.erid_found:
+            factors.append(
+                self._factor(
+                    code="advertising_service_without_erid",
+                    level="medium",
+                    score=20,
+                    message=(
+                        "Обнаружены признаки рекламных сервисов без найденного erid на проверенных страницах."
+                    ),
+                    evidence=service_evidence,
+                )
+            )
+
+        if advertising.ad_services_found and not advertising.ad_marking_found:
+            factors.append(
+                self._factor(
+                    code="advertising_service_without_label",
+                    level="medium",
+                    score=15,
+                    message=(
+                        "Обнаружены признаки рекламных сервисов без найденной явной маркировки рекламы на проверенных страницах."
+                    ),
+                    evidence=service_evidence,
+                )
+            )
+
+        if advertising.possible_ad_blocks_found:
+            factors.append(
+                self._factor(
+                    code="possible_ad_blocks_detected",
+                    level="low",
+                    score=10,
+                    message="Обнаружены возможные рекламные блоки по HTML-признакам.",
+                    evidence=[
+                        item.evidence
+                        for item in advertising.text_items
+                        if item.item_type == "possible_ad_block"
                     ],
                 )
             )

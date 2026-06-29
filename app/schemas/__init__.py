@@ -1,4 +1,9 @@
 from app.schemas.authentication import AuthProviderItem, AuthenticationResult
+from app.schemas.advertising import (
+    AdvertisingAnalysisResult,
+    AdvertisingServiceItem,
+    AdvertisingTextItem,
+)
 from app.schemas.availability import AvailabilityInfo
 from app.schemas.browser import (
     BrowserCheckResult,
@@ -32,6 +37,9 @@ from app.schemas.site import SiteInfo
 __all__ = [
     "AuthProviderItem",
     "AuthenticationResult",
+    "AdvertisingAnalysisResult",
+    "AdvertisingServiceItem",
+    "AdvertisingTextItem",
     "AvailabilityInfo",
     "BrowserCheckResult",
     "BrowserCookieItem",

@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from time import perf_counter
 
 from app.analyzers import (
+    AdvertisingAnalyzer,
     AuthProviderAnalyzer,
     ConsentAnalyzer,
     CookieAnalyzer,
@@ -39,6 +40,7 @@ class CheckService:
         policy_analyzer: PolicyAnalyzer | None = None,
         domain_compliance_analyzer: DomainComplianceAnalyzer | None = None,
         external_services_analyzer: ExternalServicesAnalyzer | None = None,
+        advertising_analyzer: AdvertisingAnalyzer | None = None,
         auth_provider_analyzer: AuthProviderAnalyzer | None = None,
         https_analyzer: HttpsAnalyzer | None = None,
         owner_requisites_analyzer: OwnerRequisitesAnalyzer | None = None,
@@ -56,6 +58,7 @@ class CheckService:
         self.policy_analyzer = policy_analyzer or PolicyAnalyzer()
         self.domain_compliance_analyzer = domain_compliance_analyzer or DomainComplianceAnalyzer()
         self.external_services_analyzer = external_services_analyzer or ExternalServicesAnalyzer()
+        self.advertising_analyzer = advertising_analyzer or AdvertisingAnalyzer()
         self.auth_provider_analyzer = auth_provider_analyzer or AuthProviderAnalyzer()
         self.https_analyzer = https_analyzer or HttpsAnalyzer()
         self.owner_requisites_analyzer = owner_requisites_analyzer or OwnerRequisitesAnalyzer()
@@ -121,6 +124,11 @@ class CheckService:
                 source_domain=site.domain,
             )
         cookies = self.cookie_analyzer.analyze(browser_check) if browser_check else None
+        advertising = self.advertising_analyzer.analyze(
+            pages=pages_data,
+            external_services=external_services,
+            browser_check=browser_check,
+        )
 
         status = "partial" if crawl.warnings else "completed"
         check_meta = self._check_meta(status=status, started_at=started_at)
@@ -132,6 +140,7 @@ class CheckService:
             authentication=authentication,
             security=security,
             cookies=cookies,
+            advertising=advertising,
             check=check_meta,
         )
         result = CheckResult(
@@ -141,6 +150,7 @@ class CheckService:
             domain_compliance=domain_compliance,
             browser_check=browser_check,
             cookies=cookies,
+            advertising=advertising,
             pages=self._to_pages_result(pages_data),
             owner_requisites=owner_requisites,
             russian_market=russian_market,

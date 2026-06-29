@@ -16,8 +16,8 @@ This table maps the extended compliance scope to the current MVP implementation.
 | Dedicated personal data request contact | Partially | `OwnerRequisitesAnalyzer` | Broaden privacy-contact patterns and connect them to policy document context | Medium |
 | Personal data localization in Russia | No | None | `HostingLocationAnalyzer` and manual evidence fields; avoid external APIs in MVP | Low |
 | RKN personal data operator notification | No | None | `RknOperatorAnalyzer` as future/manual workflow; no registry API in MVP | Manual |
-| Advertising label detection | No | None | `AdvertisingAnalyzer` to detect "Реклама", advertiser markers, and ad blocks | Medium |
-| ERID token detection | No | None | `AdvertisingAnalyzer` to detect `erid` in URLs/text and associate it with ad-like blocks | High |
+| Advertising label detection | Partially | `AdvertisingAnalyzer`, `RiskService`, `ReportService` | Improve ad block context and evidence grouping; manual review remains required | Medium |
+| ERID token detection | Partially | `AdvertisingAnalyzer`, `RiskService`, `ReportService` | Improve association between `erid`, advertising services, and visible ad-like blocks | High |
 | Accessibility baseline | No | None | `AccessibilityAnalyzer` for static checks: missing alt, headings, link text, language attributes | Medium |
 | Hosting provider registry status | No | None | `HostingLocationAnalyzer` with manual inputs or offline evidence; no external API in MVP | Low |
 | Russian-language / Russian-market orientation | Partially | `RussianMarketAnalyzer` | Improve language ratio, Russian legal entity signals, ruble/pricing/context detection | High |

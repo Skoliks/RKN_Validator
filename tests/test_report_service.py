@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from app.schemas.advertising import AdvertisingAnalysisResult, AdvertisingServiceItem
 from app.schemas.availability import AvailabilityInfo
 from app.schemas.check import CheckMeta, CheckResult
 from app.schemas.cookies import CookieAnalysisResult
@@ -24,6 +25,7 @@ def make_check_result(
     availability: AvailabilityInfo | None = None,
     domain_compliance: DomainComplianceResult | None = None,
     cookies: CookieAnalysisResult | None = None,
+    advertising: AdvertisingAnalysisResult | None = None,
     forms: FormsResult | None = None,
     owner_requisites: OwnerRequisitesResult | None = None,
     policy: PolicyResult | None = None,
@@ -48,6 +50,7 @@ def make_check_result(
         availability=availability or AvailabilityInfo(available=True, status_code=200),
         domain_compliance=domain_compliance,
         cookies=cookies,
+        advertising=advertising,
         pages=PagesResult(
             total_found=4,
             total_checked=4,
@@ -351,3 +354,45 @@ def test_report_mentions_cookies_before_user_choice_cautiously() -> None:
     assert "нарушает закон" not in report.summary.lower()
     assert "согласие отсутствует" not in report.summary.lower()
     assert "обработка незаконна" not in report.summary.lower()
+
+
+def test_report_summary_includes_advertising_block_before_truncation() -> None:
+    report = ReportService().build(
+        make_check_result(
+            risk_level="medium",
+            risk_score=55,
+            advertising=AdvertisingAnalysisResult(
+                found=True,
+                ad_services_found=True,
+                erid_found=False,
+                ad_marking_found=False,
+                services=[
+                    AdvertisingServiceItem(
+                        service_type="advertising",
+                        provider="Google DoubleClick",
+                        url="https://googleads.g.doubleclick.net/pagead/id",
+                        domain="googleads.g.doubleclick.net",
+                        source="browser_network",
+                    )
+                ],
+            ),
+            cookies=CookieAnalysisResult(
+                browser_check_available=True,
+                analyzed=True,
+                banner_found=False,
+                cookies_before_consent_found=True,
+                analytics_requests_before_consent_found=True,
+                advertising_requests_before_consent_found=True,
+            ),
+        )
+    )
+
+    assert "Обнаружены признаки подключения рекламных сервисов." in report.summary
+    assert (
+        "На проверенных страницах не найден erid; требуется ручная проверка рекламных материалов."
+        in report.summary
+    )
+    assert "Явная маркировка рекламы не была найдена автоматически." in report.summary
+    assert "сайт нарушает закон" not in report.summary.lower()
+    assert "реклама оформлена неправильно" not in report.summary.lower()
+    assert "сайт не соответствует закону о рекламе" not in report.summary.lower()

@@ -82,6 +82,18 @@ class ReportService:
         elif check_result.forms is not None:
             sentences.append("На проверенных страницах формы сбора данных не найдены.")
 
+        if check_result.advertising:
+            if check_result.advertising.ad_services_found:
+                sentences.append("Обнаружены признаки подключения рекламных сервисов.")
+                if not check_result.advertising.erid_found:
+                    sentences.append(
+                        "На проверенных страницах не найден erid; требуется ручная проверка рекламных материалов."
+                    )
+                if not check_result.advertising.ad_marking_found:
+                    sentences.append("Явная маркировка рекламы не была найдена автоматически.")
+            elif not check_result.advertising.found:
+                sentences.append("Явные рекламные признаки на проверенных страницах не найдены.")
+
         if check_result.cookies and check_result.cookies.analyzed:
             if check_result.cookies.cookies_before_consent_found:
                 sentences.append(
@@ -204,6 +216,16 @@ class ReportService:
             )
 
         if level == "medium":
+            if {
+                "advertising_service_without_erid",
+                "advertising_service_without_label",
+                "possible_ad_blocks_detected",
+            } & factor_codes:
+                return self._with_privacy_email_recommendation(
+                    check_result,
+                    "Рекомендуется вручную проверить рекламные материалы, найденные рекламные сервисы, erid и маркировку рекламы. "
+                    "Автоматическая проверка не подтверждает и не исключает нарушение.",
+                )
             if "foreign_analytics_detected" in factor_codes or "external_resource_detected" in factor_codes:
                 return self._with_privacy_email_recommendation(
                     check_result,
