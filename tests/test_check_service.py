@@ -60,7 +60,7 @@ def make_service(
 ) -> CheckService:
     return CheckService(
         availability_service=FakeAvailabilityService(availability or make_available()),
-        crawl_service=FakeCrawlService(crawl or CrawlResult(pages=[make_page("<html></html>")])),
+        crawl_service=FakeCrawlService(crawl or CrawlResult(pages=[make_page('<html lang="ru"></html>')])),
         browser_check_service=FakeBrowserCheckService(enabled=False),
     )
 
@@ -171,7 +171,7 @@ async def test_check_service_site_with_google_tag_manager() -> None:
         crawl=CrawlResult(
             pages=[
                 make_page(
-                    '<script src="https://www.googletagmanager.com/gtm.js?id=GTM-123"></script>'
+                    '<html lang="ru"><script src="https://www.googletagmanager.com/gtm.js?id=GTM-123"></script></html>'
                 )
             ]
         )
@@ -247,7 +247,7 @@ async def test_check_service_does_not_call_browser_check_when_disabled() -> None
     browser_check_service = FakeBrowserCheckService(enabled=False)
     service = CheckService(
         availability_service=FakeAvailabilityService(make_available()),
-        crawl_service=FakeCrawlService(CrawlResult(pages=[make_page("<html></html>")])),
+        crawl_service=FakeCrawlService(CrawlResult(pages=[make_page('<html lang="ru"></html>')])),
         browser_check_service=browser_check_service,
     )
 
@@ -262,7 +262,7 @@ async def test_check_service_includes_browser_check_when_enabled() -> None:
     browser_check_service = FakeBrowserCheckService(enabled=True)
     service = CheckService(
         availability_service=FakeAvailabilityService(make_available()),
-        crawl_service=FakeCrawlService(CrawlResult(pages=[make_page("<html></html>")])),
+        crawl_service=FakeCrawlService(CrawlResult(pages=[make_page('<html lang="ru"></html>')])),
         browser_check_service=browser_check_service,
     )
 

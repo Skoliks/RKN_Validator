@@ -82,6 +82,29 @@ class ReportService:
         elif check_result.forms is not None:
             sentences.append("На проверенных страницах формы сбора данных не найдены.")
 
+        if check_result.accessibility:
+            if check_result.accessibility.issues_found:
+                sentences.append(
+                    "Обнаружены признаки возможных технических проблем доступности; требуется ручная проверка."
+                )
+                if check_result.accessibility.missing_alt_count > 0:
+                    sentences.append(
+                        "На проверенных страницах найдены изображения без атрибута alt."
+                    )
+                if (
+                    check_result.accessibility.empty_links_count > 0
+                    or check_result.accessibility.empty_buttons_count > 0
+                ):
+                    sentences.append(
+                        "Найдены ссылки или кнопки без доступного текстового описания."
+                    )
+                if check_result.accessibility.missing_input_labels_count > 0:
+                    sentences.append("Найдены поля форм без автоматически определённой подписи.")
+            else:
+                sentences.append(
+                    "Явные технические замечания по доступности на проверенных страницах не найдены."
+                )
+
         if check_result.advertising:
             if check_result.advertising.ad_services_found:
                 sentences.append("Обнаружены признаки подключения рекламных сервисов.")
@@ -193,7 +216,7 @@ class ReportService:
             )
 
         sentences.append("Рекомендуется ручная проверка для подтверждения выводов.")
-        return " ".join(sentences[:7])
+        return " ".join(sentences[:12])
 
     def _build_recommendation(self, check_result: CheckResult) -> str:
         risk = check_result.risk_assessment
@@ -216,6 +239,15 @@ class ReportService:
             )
 
         if level == "medium":
+            if {
+                "accessibility_medium_issues_detected",
+                "accessibility_low_issues_detected",
+            } & factor_codes:
+                return self._with_privacy_email_recommendation(
+                    check_result,
+                    "Рекомендуется вручную проверить найденные технические замечания по доступности. "
+                    "Автоматическая проверка не заменяет полноценный аудит доступности.",
+                )
             if {
                 "advertising_service_without_erid",
                 "advertising_service_without_label",

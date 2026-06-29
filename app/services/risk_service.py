@@ -1,5 +1,6 @@
 from html import unescape
 
+from app.schemas.accessibility import AccessibilityAnalysisResult
 from app.schemas.advertising import AdvertisingAnalysisResult
 from app.schemas.authentication import AuthenticationResult
 from app.schemas.check import CheckMeta
@@ -34,6 +35,7 @@ class RiskService:
         security: SecurityResult | None = None,
         cookies: CookieAnalysisResult | None = None,
         advertising: AdvertisingAnalysisResult | None = None,
+        accessibility: AccessibilityAnalysisResult | None = None,
         check: CheckMeta | str | None = None,
         policy_available: bool | None = None,
     ) -> RiskAssessment:
@@ -148,6 +150,7 @@ class RiskService:
         cookie_factors = self._cookie_factors(cookies)
         factors.extend(cookie_factors)
         factors.extend(self._advertising_factors(advertising))
+        factors.extend(self._accessibility_factors(accessibility))
 
         if self._check_status(check) == "partial":
             factors.append(
@@ -421,6 +424,53 @@ class RiskService:
             )
 
         return factors
+
+    def _accessibility_factors(
+        self,
+        accessibility: AccessibilityAnalysisResult | None,
+    ) -> list[RiskFactor]:
+        if not accessibility or not accessibility.issues_found:
+            return []
+
+        medium_issue_found = (
+            accessibility.missing_lang
+            or accessibility.missing_alt_count > 0
+            or accessibility.empty_links_count > 0
+            or accessibility.empty_buttons_count > 0
+            or accessibility.missing_input_labels_count > 0
+            or accessibility.iframe_missing_title_count > 0
+        )
+        low_issue_found = (
+            accessibility.empty_alt_count > 0
+            or accessibility.heading_order_warnings_count > 0
+            or accessibility.duplicate_ids_count > 0
+        )
+        medium_issues = [item for item in accessibility.items if item.severity == "medium"]
+        low_issues = [item for item in accessibility.items if item.severity == "low"]
+        if medium_issue_found:
+            return [
+                self._factor(
+                    code="accessibility_medium_issues_detected",
+                    level="medium",
+                    score=20,
+                    message="Обнаружены признаки возможных проблем доступности на проверенных страницах.",
+                    evidence=self._issue_evidence(medium_issues or accessibility.items),
+                )
+            ]
+        if low_issue_found:
+            return [
+                self._factor(
+                    code="accessibility_low_issues_detected",
+                    level="low",
+                    score=10,
+                    message="Обнаружены отдельные технические замечания по доступности.",
+                    evidence=self._issue_evidence(low_issues or accessibility.items),
+                )
+            ]
+        return []
+
+    def _issue_evidence(self, items) -> list[str]:
+        return [f"{item.issue_type}: {item.evidence}" for item in items]
 
     def _check_status(self, check: CheckMeta | str | None) -> str | None:
         if isinstance(check, str):

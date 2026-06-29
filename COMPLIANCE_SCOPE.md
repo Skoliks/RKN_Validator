@@ -58,7 +58,7 @@ The current MVP includes `AdvertisingAnalyzer`, which performs a preliminary aut
 
 The scope includes baseline accessibility requirements such as text scaling, contrast, keyboard navigation, alt text, meaningful links/headings, and accessible CAPTCHA where applicable.
 
-The current MVP does not perform accessibility analysis. Future checks should remain lightweight and static unless a later project phase explicitly allows browser-based tooling.
+The current MVP includes `AccessibilityAnalyzer`, which performs a preliminary technical check of crawled HTML for missing `html lang`, image `alt`, empty links/buttons, missing form labels, iframe titles, heading-order warnings, and duplicate `id` values. It does not replace a full accessibility audit, does not verify ГОСТ/WCAG conformance, and does not make legal conclusions. Findings mean that manual review is required.
 
 ### Hosting
 

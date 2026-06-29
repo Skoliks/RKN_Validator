@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from time import perf_counter
 
 from app.analyzers import (
+    AccessibilityAnalyzer,
     AdvertisingAnalyzer,
     AuthProviderAnalyzer,
     ConsentAnalyzer,
@@ -34,6 +35,7 @@ class CheckService:
         url_service: UrlService | None = None,
         availability_service: AvailabilityService | None = None,
         crawl_service: CrawlService | None = None,
+        accessibility_analyzer: AccessibilityAnalyzer | None = None,
         form_analyzer: FormAnalyzer | None = None,
         consent_analyzer: ConsentAnalyzer | None = None,
         cookie_analyzer: CookieAnalyzer | None = None,
@@ -52,6 +54,7 @@ class CheckService:
         self.url_service = url_service or UrlService()
         self.availability_service = availability_service or AvailabilityService()
         self.crawl_service = crawl_service or CrawlService()
+        self.accessibility_analyzer = accessibility_analyzer or AccessibilityAnalyzer()
         self.form_analyzer = form_analyzer or FormAnalyzer()
         self.consent_analyzer = consent_analyzer or ConsentAnalyzer()
         self.cookie_analyzer = cookie_analyzer or CookieAnalyzer()
@@ -109,6 +112,7 @@ class CheckService:
         crawl = await self.crawl_service.crawl(site)
         pages_data = crawl.pages
 
+        accessibility = self.accessibility_analyzer.analyze(pages_data)
         forms = self.form_analyzer.analyze(pages_data)
         consents = self.consent_analyzer.analyze(pages_data, forms)
         policy = self.policy_analyzer.analyze(pages_data)
@@ -141,6 +145,7 @@ class CheckService:
             security=security,
             cookies=cookies,
             advertising=advertising,
+            accessibility=accessibility,
             check=check_meta,
         )
         result = CheckResult(
@@ -151,6 +156,7 @@ class CheckService:
             browser_check=browser_check,
             cookies=cookies,
             advertising=advertising,
+            accessibility=accessibility,
             pages=self._to_pages_result(pages_data),
             owner_requisites=owner_requisites,
             russian_market=russian_market,

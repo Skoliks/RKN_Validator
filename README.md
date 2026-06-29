@@ -89,6 +89,8 @@ ENABLE_COOKIE_INTERACTION_CHECK=true
 
 `AdvertisingAnalyzer` добавляет отдельный блок `advertising` в результат проверки. Он предварительно ищет признаки рекламных сервисов, `erid`, явной маркировки рекламы, сведений о рекламодателе и возможных рекламных блоков по HTML-признакам, используя только уже собранные страницы, `ExternalServicesAnalyzer` и опциональные browser network данные. Блок не делает юридический вывод: автоматическая проверка не подтверждает и не исключает нарушение, а найденные признаки требуют ручной проверки.
 
+`AccessibilityAnalyzer` adds a separate `accessibility` block. It performs a preliminary technical check of crawled HTML for missing `html lang`, image `alt`, empty links/buttons, missing form labels, iframe titles, heading-order warnings, and duplicate `id` values. It does not replace a full accessibility audit and does not make legal conclusions; findings require manual review.
+
 ## Примеры запросов
 
 Healthcheck:

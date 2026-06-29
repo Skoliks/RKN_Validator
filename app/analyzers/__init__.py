@@ -1,3 +1,4 @@
+from app.analyzers.accessibility_analyzer import AccessibilityAnalyzer
 from app.analyzers.auth_provider_analyzer import AuthProviderAnalyzer
 from app.analyzers.advertising_analyzer import AdvertisingAnalyzer
 from app.analyzers.consent_analyzer import ConsentAnalyzer
@@ -11,6 +12,7 @@ from app.analyzers.policy_analyzer import PolicyAnalyzer
 from app.analyzers.russian_market_analyzer import RussianMarketAnalyzer
 
 __all__ = [
+    "AccessibilityAnalyzer",
     "AuthProviderAnalyzer",
     "AdvertisingAnalyzer",
     "ConsentAnalyzer",

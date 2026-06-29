@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from app.schemas.accessibility import AccessibilityAnalysisResult
 from app.schemas.advertising import AdvertisingAnalysisResult, AdvertisingServiceItem
 from app.schemas.availability import AvailabilityInfo
 from app.schemas.check import CheckMeta, CheckResult
@@ -26,6 +27,7 @@ def make_check_result(
     domain_compliance: DomainComplianceResult | None = None,
     cookies: CookieAnalysisResult | None = None,
     advertising: AdvertisingAnalysisResult | None = None,
+    accessibility: AccessibilityAnalysisResult | None = None,
     forms: FormsResult | None = None,
     owner_requisites: OwnerRequisitesResult | None = None,
     policy: PolicyResult | None = None,
@@ -51,6 +53,7 @@ def make_check_result(
         domain_compliance=domain_compliance,
         cookies=cookies,
         advertising=advertising,
+        accessibility=accessibility,
         pages=PagesResult(
             total_found=4,
             total_checked=4,

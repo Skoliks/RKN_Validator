@@ -18,7 +18,7 @@ This table maps the extended compliance scope to the current MVP implementation.
 | RKN personal data operator notification | No | None | `RknOperatorAnalyzer` as future/manual workflow; no registry API in MVP | Manual |
 | Advertising label detection | Partially | `AdvertisingAnalyzer`, `RiskService`, `ReportService` | Improve ad block context and evidence grouping; manual review remains required | Medium |
 | ERID token detection | Partially | `AdvertisingAnalyzer`, `RiskService`, `ReportService` | Improve association between `erid`, advertising services, and visible ad-like blocks | High |
-| Accessibility baseline | No | None | `AccessibilityAnalyzer` for static checks: missing alt, headings, link text, language attributes | Medium |
+| Accessibility baseline | Partially | `AccessibilityAnalyzer`, `RiskService`, `ReportService` | Improve context, grouping, and severity confidence; full accessibility audit remains manual | Medium |
 | Hosting provider registry status | No | None | `HostingLocationAnalyzer` with manual inputs or offline evidence; no external API in MVP | Low |
 | Russian-language / Russian-market orientation | Partially | `RussianMarketAnalyzer` | Improve language ratio, Russian legal entity signals, ruble/pricing/context detection | High |
 | External services and resources | Partially | `ExternalServicesAnalyzer`, `RiskService` | Split resource, analytics, CRM widget, CDN, social link, messenger, and auth categories consistently | High |

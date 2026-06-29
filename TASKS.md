@@ -51,6 +51,9 @@ Browser cookie interaction check: optional Playwright scenario for recognized co
 ## Iteration 17
 AdvertisingAnalyzer: preliminary detection of advertising services, `erid`, explicit ad labels, advertiser mentions, and possible ad blocks from crawled HTML, external service findings, and optional browser network data. The result is exposed as `advertising` in `CheckResult`; it does not make legal conclusions and requires manual review.
 
+## Iteration 18
+AccessibilityAnalyzer: preliminary static accessibility check for missing `html lang`, image `alt`, empty links/buttons, missing form labels, iframe titles, heading-order warnings, and duplicate `id` values. The result is exposed as `accessibility` in `CheckResult`; it does not replace a full accessibility audit and does not make legal conclusions.
+
 ## Future iterations after MVP
 
 These items are future scope only. They must not expand the current MVP and must follow `PROJECT_RULES.md` layering and tooling constraints.
@@ -59,6 +62,6 @@ These items are future scope only. They must not expand the current MVP and must
 - DomainComplianceAnalyzer improvements: add optional manual evidence fields for registrar and administrator checks without whois or external APIs.
 - CookieAnalyzer improvements: improve banner extraction, consent-control interpretation, and cookie category confidence without making legal conclusions.
 - AdvertisingAnalyzer improvements: improve ad block context, service taxonomy, and evidence grouping without legal conclusions or external APIs.
-- AccessibilityAnalyzer: perform lightweight static accessibility checks such as missing alt text, weak link text, heading structure, and language attributes.
+- AccessibilityAnalyzer improvements: improve context, grouping, and severity confidence without replacing a full accessibility audit.
 - HostingLocationAnalyzer: collect technical hosting hints and manual evidence for hosting/provider localization checks without external APIs in the MVP.
 - RknOperatorAnalyzer: document and collect manual evidence for RKN personal data operator notification status without external APIs in the MVP.

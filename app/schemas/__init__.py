@@ -1,3 +1,4 @@
+from app.schemas.accessibility import AccessibilityAnalysisResult, AccessibilityIssueItem
 from app.schemas.authentication import AuthProviderItem, AuthenticationResult
 from app.schemas.advertising import (
     AdvertisingAnalysisResult,
@@ -35,6 +36,8 @@ from app.schemas.security import InsecureFormAction, SecurityResult
 from app.schemas.site import SiteInfo
 
 __all__ = [
+    "AccessibilityAnalysisResult",
+    "AccessibilityIssueItem",
     "AuthProviderItem",
     "AuthenticationResult",
     "AdvertisingAnalysisResult",

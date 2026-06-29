@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.accessibility import AccessibilityAnalysisResult
 from app.schemas.authentication import AuthenticationResult
 from app.schemas.advertising import AdvertisingAnalysisResult
 from app.schemas.availability import AvailabilityInfo
@@ -48,6 +49,7 @@ class CheckResult(BaseModel):
     browser_check: BrowserCheckResult | None = None
     cookies: CookieAnalysisResult | None = None
     advertising: AdvertisingAnalysisResult | None = None
+    accessibility: AccessibilityAnalysisResult | None = None
     pages: PagesResult | None = None
     owner_requisites: OwnerRequisitesResult | None = None
     russian_market: RussianMarketResult | None = None
