@@ -28,8 +28,9 @@ class FakeCrawlService:
 
 
 class FakeBrowserCheckService:
-    def __init__(self, enabled: bool) -> None:
+    def __init__(self, enabled: bool, visible_text: str | None = None) -> None:
         self.enabled = enabled
+        self.visible_text = visible_text
         self.called = False
 
     async def check(self, pages_or_urls, source_domain: str | None = None):
@@ -45,6 +46,7 @@ class FakeBrowserCheckService:
                     browser_check_performed=True,
                     url="https://example.ru",
                     final_url="https://example.ru",
+                    visible_text=self.visible_text,
                 )
             ],
         )
@@ -286,3 +288,29 @@ def test_check_result_pages_do_not_contain_html() -> None:
 
     dumped = result.model_dump()
     assert "html" not in str(dumped)
+
+
+@pytest.mark.asyncio
+async def test_report_and_risk_do_not_contain_html_base64_or_visible_text() -> None:
+    noisy_html = (
+        '<html lang="ru"><body><img src="data:image/png;base64,'
+        + ("A" * 500)
+        + '"><div class="adsbygoogle">ad</div></body></html>'
+    )
+    visible_text = "VISIBLE_TEXT_SHOULD_STAY_ONLY_IN_BROWSER_CHECK"
+    service = CheckService(
+        availability_service=FakeAvailabilityService(make_available()),
+        crawl_service=FakeCrawlService(CrawlResult(pages=[make_page(noisy_html)])),
+        browser_check_service=FakeBrowserCheckService(enabled=True, visible_text=visible_text),
+    )
+
+    result = await service.check("https://example.ru")
+
+    assert result.report is not None
+    assert result.risk_assessment is not None
+    report_json = result.report.model_dump_json()
+    risk_json = result.risk_assessment.model_dump_json()
+
+    for forbidden in ["<html", "<body", "base64", "AAAAA", visible_text]:
+        assert forbidden not in report_json
+        assert forbidden not in risk_json

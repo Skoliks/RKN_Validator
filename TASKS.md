@@ -60,6 +60,9 @@ InfrastructureAnalyzer: preliminary analysis of third-party infrastructure domai
 ## Iteration 20
 Final report polishing: `ReportService` returns structured `summary`, `recommendations`, `checked_areas`, `manual_review_required`, and `limitations`. The report keeps cautious wording, avoids legal conclusions, preserves existing cookie/advertising/accessibility/infrastructure/security/domain/owner signals, and keeps browser-dependent limitations explicit when browser checks are disabled. `RiskService` consistency was tightened for score caps, preliminary-only factors, evidence size, query/base64 noise, and duplicate factor codes.
 
+## Iteration 20B
+Risk/JSON cleanup and final regression: backend-MVP logic is complete. `RiskService` keeps scores within 0..100, caps preliminary-only findings at medium/85, deduplicates factor codes and evidence, limits evidence size, and removes noisy base64/query evidence from risk output. Final regression covers structured report fields and `/check` modes with browser check disabled, browser check enabled, and cookie interaction enabled.
+
 ## Future iterations after MVP
 
 These items are future scope only. They must not expand the current MVP and must follow `PROJECT_RULES.md` layering and tooling constraints.

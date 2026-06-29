@@ -332,6 +332,7 @@ def test_risk_assessment_consistency_limits_score_evidence_and_factor_codes() ->
     )
 
     assert result.total_score <= 100
+    assert result.total_score >= 0
     assert result.level not in {"high", "critical"}
     codes = [factor.code for factor in result.factors]
     assert len(codes) == len(set(codes))
@@ -366,6 +367,63 @@ def test_risk_evidence_does_not_include_large_data_images() -> None:
     )
 
     assert factor.evidence == ["missing_image_alt: inline data image"]
+
+
+def test_risk_evidence_is_truncated_to_300_characters() -> None:
+    long_html = "<div>" + ("x" * 500) + "</div>"
+    result = RiskService().assess(
+        accessibility=AccessibilityAnalysisResult(
+            checked=True,
+            issues_found=True,
+            missing_alt_count=1,
+            items=[
+                AccessibilityIssueItem(
+                    issue_type="missing_image_alt",
+                    page_url="https://example.ru",
+                    element="img",
+                    evidence=long_html,
+                    severity="medium",
+                )
+            ],
+        ),
+        check=make_check(),
+    )
+
+    factor = next(
+        factor
+        for factor in result.factors
+        if factor.code == "accessibility_medium_issues_detected"
+    )
+
+    assert len(factor.evidence[0]) <= 300
+
+
+def test_risk_evidence_replaces_html_tags() -> None:
+    result = RiskService().assess(
+        accessibility=AccessibilityAnalysisResult(
+            checked=True,
+            issues_found=True,
+            missing_lang=True,
+            items=[
+                AccessibilityIssueItem(
+                    issue_type="missing_html_lang",
+                    page_url="https://example.ru",
+                    element="html",
+                    evidence="<html>",
+                    severity="medium",
+                )
+            ],
+        ),
+        check=make_check(),
+    )
+
+    factor = next(
+        factor
+        for factor in result.factors
+        if factor.code == "accessibility_medium_issues_detected"
+    )
+
+    assert factor.evidence == ["missing_html_lang: html element"]
 
 
 def test_foreign_auth_escalates_to_high() -> None:

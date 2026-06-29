@@ -1,3 +1,4 @@
+import re
 from html import unescape
 from urllib.parse import urlsplit, urlunsplit
 
@@ -273,15 +274,17 @@ class RiskService:
             if prefix and not prefix.endswith(" "):
                 prefix += " "
             return prefix + "inline data image"
+        if "<" in normalized and ">" in normalized:
+            normalized = re.sub(r"<[^>]{1,200}>", "html element", normalized)
         if len(normalized) > 300:
             normalized = normalized[:300]
         try:
             parts = urlsplit(normalized)
         except ValueError:
-            return normalized
+            return normalized[:300]
         if parts.scheme and parts.netloc and parts.query:
-            return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
-        return normalized
+            return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))[:300]
+        return normalized[:300]
 
     def _insecure_personal_forms(
         self,
@@ -588,7 +591,7 @@ class RiskService:
         return check.status
 
     def _score_for_factors(self, factors: list[RiskFactor]) -> int:
-        total_score = min(sum(factor.score for factor in factors), 100)
+        total_score = min(max(sum(factor.score for factor in factors), 0), 100)
         if self._is_preliminary_cookie_score_dominant(factors):
             return min(total_score, self.preliminary_cookie_score_cap)
         return total_score
