@@ -5,6 +5,9 @@ from app.schemas.browser import (
     BrowserCookieItem,
     BrowserNetworkRequest,
     BrowserPageResult,
+    CookieInteractionButton,
+    CookieInteractionResult,
+    CookieInteractionSnapshot,
 )
 from app.schemas.check import CheckMeta, CheckRequest, CheckResult
 from app.schemas.consents import ConsentItem, ConsentsResult
@@ -34,6 +37,9 @@ __all__ = [
     "BrowserCookieItem",
     "BrowserNetworkRequest",
     "BrowserPageResult",
+    "CookieInteractionButton",
+    "CookieInteractionResult",
+    "CookieInteractionSnapshot",
     "CheckMeta",
     "CheckRequest",
     "CheckResult",

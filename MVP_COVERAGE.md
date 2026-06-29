@@ -11,7 +11,7 @@ This table maps the extended compliance scope to the current MVP implementation.
 | Personal data form detection | Yes | `FormAnalyzer` | Improve field taxonomy and multi-step form hints | High |
 | Consent near personal data forms | Partially | `ConsentAnalyzer` | Detect separate consent documents and stronger proximity/context rules | Medium |
 | Privacy / confidentiality document detection | Partially | `PolicyAnalyzer` | Improve document scoring and distinguish policy, consent, terms, and privacy notice | Medium |
-| Cookie banner and optional cookie consent | Partially | `BrowserClient`, `CookieAnalyzer`, `RiskService`, `ReportService` | Improve banner extraction and consent-control interpretation; no clicks in current MVP | Medium |
+| Cookie banner and optional cookie consent | Partially | `BrowserClient`, `CookieAnalyzer`, `RiskService`, `ReportService` | Improve banner extraction and consent-control interpretation; interaction check is optional and limited to recognized cookie buttons | Medium |
 | Owner requisites: name, INN, OGRN/OGRNIP, address, contacts | Partially | `OwnerRequisitesAnalyzer` | Improve completeness scoring and distinguish weak address hints from full legal address | High |
 | Dedicated personal data request contact | Partially | `OwnerRequisitesAnalyzer` | Broaden privacy-contact patterns and connect them to policy document context | Medium |
 | Personal data localization in Russia | No | None | `HostingLocationAnalyzer` and manual evidence fields; avoid external APIs in MVP | Low |

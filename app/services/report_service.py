@@ -23,6 +23,8 @@ class ReportService:
         "cookie_banner_not_found": "cookie-баннер не найден или не распознан автоматически при наличии cookie-признаков",
         "cookies_before_consent_detected": "обнаружены признаки cookies или аналитических запросов до выбора пользователя",
         "advertising_before_consent_detected": "обнаружены запросы к рекламным сервисам до выбора пользователя",
+        "cookie_reject_button_not_found": "явная кнопка отклонения cookie не найдена автоматически",
+        "cookie_reject_did_not_reduce_tracking": "после отклонения не зафиксировано заметного снижения tracking-запросов",
         "partial_check": "проверка выполнена частично",
     }
 
@@ -96,6 +98,26 @@ class ReportService:
                 sentences.append(
                     "Cookie-баннер не был найден или не был распознан автоматически; требуется ручная проверка."
                 )
+            if check_result.cookies.interaction_available and not check_result.cookies.reject_button_found:
+                sentences.append(
+                    "Явная кнопка отклонения cookie не была найдена автоматически; требуется ручная проверка."
+                )
+            if check_result.cookies.reject_test_performed:
+                if (
+                    check_result.cookies.analytics_reduced_after_reject is False
+                    or check_result.cookies.advertising_reduced_after_reject is False
+                ):
+                    sentences.append(
+                        "После нажатия кнопки отклонения не зафиксировано заметного снижения cookies или запросов к сервисам отслеживания; требуется ручная проверка."
+                    )
+                elif (
+                    check_result.cookies.cookies_reduced_after_reject
+                    or check_result.cookies.analytics_reduced_after_reject
+                    or check_result.cookies.advertising_reduced_after_reject
+                ):
+                    sentences.append(
+                        "После нажатия кнопки отклонения количество cookies или запросов к сервисам отслеживания уменьшилось."
+                    )
 
         if check_result.domain_compliance:
             if check_result.domain_compliance.applies_to_domain_zone:

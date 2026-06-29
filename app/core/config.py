@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     browser_timeout_seconds: float = 15
     browser_navigation_wait_until: str = "networkidle"
     browser_max_network_requests: int = 200
+    enable_cookie_interaction_check: bool = False
+    cookie_interaction_timeout_seconds: float = 10
+    cookie_interaction_text_limit: int = 3000
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.browser import CookieInteractionResult
+
 
 class CookieBannerCandidate(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -46,8 +48,18 @@ class CookieAnalysisResult(BaseModel):
     analytics_requests_before_consent_found: bool = False
     advertising_requests_before_consent_found: bool = False
     third_party_requests_before_consent_found: bool = False
+    interaction_available: bool = False
+    reject_button_found: bool = False
+    accept_button_found: bool = False
+    settings_button_found: bool = False
+    reject_test_performed: bool = False
+    accept_test_performed: bool = False
+    cookies_reduced_after_reject: bool | None = None
+    analytics_reduced_after_reject: bool | None = None
+    advertising_reduced_after_reject: bool | None = None
     banner_candidates: list[CookieBannerCandidate] = Field(default_factory=list)
     cookies_before_consent: list[CookieBeforeConsentItem] = Field(default_factory=list)
     requests_before_consent: list[CookieNetworkRequestItem] = Field(default_factory=list)
+    interaction: CookieInteractionResult | None = None
     warnings: list[str] = Field(default_factory=list)
     message: str | None = None

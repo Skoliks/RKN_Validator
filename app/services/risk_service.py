@@ -14,6 +14,14 @@ from app.schemas.security import SecurityResult
 class RiskService:
     analytics_types = {"analytics", "tag_manager"}
     link_only_types = {"social_network", "messenger"}
+    preliminary_cookie_factor_codes = {
+        "cookie_banner_not_found",
+        "cookies_before_consent_detected",
+        "advertising_before_consent_detected",
+        "cookie_reject_button_not_found",
+        "cookie_reject_did_not_reduce_tracking",
+    }
+    preliminary_cookie_score_cap = 85
 
     def assess(
         self,
@@ -149,9 +157,10 @@ class RiskService:
                 )
             )
 
-        total_score = min(sum(factor.score for factor in factors), 100)
+        total_score = self._score_for_factors(factors)
         level = self._level_for_score(total_score)
         level = self._apply_escalation_rules(level, factors, has_personal_data_forms)
+        total_score = self._align_score_with_level(total_score, level)
 
         return RiskAssessment(total_score=total_score, level=level, factors=factors)
 
@@ -318,6 +327,44 @@ class RiskService:
                 )
             )
 
+        if (
+            (cookies.banner_found or cookies.cookies_before_consent_found)
+            and not cookies.reject_button_found
+        ):
+            factors.append(
+                self._factor(
+                    code="cookie_reject_button_not_found",
+                    level="medium",
+                    score=20,
+                    message="Явная кнопка отклонения cookie не была найдена автоматически; требуется ручная проверка.",
+                    evidence=["reject_button_found=false"],
+                )
+            )
+
+        if cookies.reject_test_performed and (
+            cookies.analytics_reduced_after_reject is False
+            or cookies.advertising_reduced_after_reject is False
+        ):
+            factors.append(
+                self._factor(
+                    code="cookie_reject_did_not_reduce_tracking",
+                    level="medium",
+                    score=25,
+                    message=(
+                        "После нажатия кнопки отклонения не зафиксировано заметного снижения запросов "
+                        "к сервисам отслеживания; требуется ручная проверка."
+                    ),
+                    evidence=[
+                        "analytics_reduced_after_reject=false"
+                        if cookies.analytics_reduced_after_reject is False
+                        else "",
+                        "advertising_reduced_after_reject=false"
+                        if cookies.advertising_reduced_after_reject is False
+                        else "",
+                    ],
+                )
+            )
+
         return factors
 
     def _check_status(self, check: CheckMeta | str | None) -> str | None:
@@ -327,12 +374,48 @@ class RiskService:
             return None
         return check.status
 
+    def _score_for_factors(self, factors: list[RiskFactor]) -> int:
+        total_score = min(sum(factor.score for factor in factors), 100)
+        if self._is_preliminary_cookie_score_dominant(factors):
+            return min(total_score, self.preliminary_cookie_score_cap)
+        return total_score
+
+    def _is_preliminary_cookie_score_dominant(self, factors: list[RiskFactor]) -> bool:
+        if not factors:
+            return False
+
+        cookie_score = sum(
+            factor.score
+            for factor in factors
+            if factor.code in self.preliminary_cookie_factor_codes
+        )
+        if cookie_score == 0:
+            return False
+
+        non_cookie_factors = [
+            factor
+            for factor in factors
+            if factor.code not in self.preliminary_cookie_factor_codes
+        ]
+        if any(factor.level == "high" for factor in non_cookie_factors):
+            return False
+
+        non_cookie_score = sum(factor.score for factor in non_cookie_factors)
+        return cookie_score >= non_cookie_score
+
     def _level_for_score(self, score: int) -> str:
         if score <= 30:
             return "low"
-        if score <= 70:
+        if score <= self.preliminary_cookie_score_cap:
             return "medium"
         return "high"
+
+    def _align_score_with_level(self, score: int, level: str) -> int:
+        if level == "low":
+            return min(score, 30)
+        if level == "medium":
+            return min(score, self.preliminary_cookie_score_cap)
+        return max(score, self.preliminary_cookie_score_cap + 1)
 
     def _apply_escalation_rules(
         self,

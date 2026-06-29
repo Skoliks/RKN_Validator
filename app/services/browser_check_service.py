@@ -2,12 +2,19 @@ from typing import Protocol
 
 from app.core.config import settings
 from app.infrastructure.browser_client import BrowserClient
-from app.schemas.browser import BrowserCheckResult, BrowserPageResult
+from app.schemas.browser import BrowserCheckResult, BrowserPageResult, CookieInteractionResult
 from app.schemas.pages import PageData
 
 
 class BrowserPageClient(Protocol):
     async def check_page(self, url: str, source_domain: str | None = None) -> BrowserPageResult:
+        ...
+
+    async def check_cookie_interaction(
+        self,
+        url: str,
+        source_domain: str | None = None,
+    ) -> CookieInteractionResult:
         ...
 
 
@@ -16,11 +23,17 @@ class BrowserCheckService:
         self,
         browser_client: BrowserPageClient | None = None,
         enabled: bool | None = None,
+        cookie_interaction_enabled: bool | None = None,
         max_pages: int = 1,
         max_network_requests: int | None = None,
     ) -> None:
         self.browser_client = browser_client or BrowserClient()
         self.enabled = settings.enable_browser_check if enabled is None else enabled
+        self.cookie_interaction_enabled = (
+            settings.enable_cookie_interaction_check
+            if cookie_interaction_enabled is None
+            else cookie_interaction_enabled
+        )
         self.max_pages = max_pages
         self.max_network_requests = (
             max_network_requests
@@ -50,11 +63,19 @@ class BrowserCheckService:
             page_result = await self.browser_client.check_page(url, source_domain=source_domain)
             items.append(self._limit_network_requests(page_result))
 
+        cookie_interaction = None
+        if self.cookie_interaction_enabled:
+            cookie_interaction = await self.browser_client.check_cookie_interaction(
+                urls[0],
+                source_domain=source_domain,
+            )
+
         return BrowserCheckResult(
             enabled=True,
             performed=any(item.browser_check_performed for item in items),
             pages_checked=len(items),
             items=items,
+            cookie_interaction=cookie_interaction,
             warnings=[
                 item.message
                 for item in items

@@ -45,6 +45,9 @@ BrowserClient on Playwright: optional browser infrastructure for collecting cook
 ## Iteration 15
 CookieAnalyzer on BrowserCheck data: preliminary detection of cookie-banner text, cookies after initial page load before explicit user choice, and third-party analytics or advertising requests; no clicks, screenshots, form submission, or legal conclusions.
 
+## Iteration 16
+Browser cookie interaction check: optional Playwright scenario for recognized cookie accept/reject buttons in isolated contexts; no forms, screenshots, business CTA clicks, external APIs, or legal conclusions.
+
 ## Future iterations after MVP
 
 These items are future scope only. They must not expand the current MVP and must follow `PROJECT_RULES.md` layering and tooling constraints.

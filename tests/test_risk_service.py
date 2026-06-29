@@ -69,6 +69,47 @@ def factor_codes(assessment) -> set[str]:
     return {factor.code for factor in assessment.factors}
 
 
+def assert_score_level_consistent(assessment) -> None:
+    if assessment.level == "low":
+        assert assessment.total_score <= 30
+    elif assessment.level == "medium":
+        assert 31 <= assessment.total_score <= 85
+    else:
+        assert assessment.total_score >= 86
+
+
+def make_cookie_only_risk() -> CookieAnalysisResult:
+    return CookieAnalysisResult(
+        browser_check_available=True,
+        analyzed=True,
+        banner_found=False,
+        cookies_before_consent_found=True,
+        third_party_cookies_before_consent_found=True,
+        analytics_requests_before_consent_found=True,
+        advertising_requests_before_consent_found=True,
+        reject_button_found=False,
+        reject_test_performed=True,
+        analytics_reduced_after_reject=False,
+        advertising_reduced_after_reject=False,
+        cookies_before_consent=[
+            CookieBeforeConsentItem(
+                name="_ga",
+                domain=".google-analytics.com",
+                is_third_party=True,
+                category="analytics",
+            )
+        ],
+        requests_before_consent=[
+            CookieNetworkRequestItem(
+                url="https://doubleclick.net/activity",
+                domain="doubleclick.net",
+                category="advertising",
+                is_third_party=True,
+            )
+        ],
+    )
+
+
 def test_good_site_has_low_risk() -> None:
     result = RiskService().assess(
         forms=FormsResult(),
@@ -83,6 +124,7 @@ def test_good_site_has_low_risk() -> None:
     assert result.total_score == 0
     assert result.level == "low"
     assert result.factors == []
+    assert_score_level_consistent(result)
 
 
 def test_forms_without_policy_and_consent_escalates_to_high() -> None:
@@ -101,6 +143,7 @@ def test_forms_without_policy_and_consent_escalates_to_high() -> None:
         "privacy_policy_not_found",
         "forms_without_consent",
     }.issubset(factor_codes(result))
+    assert_score_level_consistent(result)
 
 
 def test_google_analytics_with_documents_is_medium_without_duplicate_service_factor() -> None:
@@ -289,6 +332,7 @@ def test_forms_submit_over_http_escalates_to_high_and_score_is_capped() -> None:
     assert result.level == "high"
     assert result.total_score == 100
     assert "forms_submit_over_http" in factor_codes(result)
+    assert_score_level_consistent(result)
 
 
 def test_partial_check_adds_partial_factor() -> None:
@@ -318,6 +362,7 @@ def test_cookie_banner_not_found_added_only_with_browser_evidence() -> None:
 
     assert "cookie_banner_not_found" in factor_codes(result)
     assert result.level == "medium"
+    assert_score_level_consistent(result)
 
 
 def test_cookie_factors_not_added_when_browser_check_unavailable() -> None:
@@ -369,6 +414,39 @@ def test_cookie_risk_factors_for_third_party_and_advertising() -> None:
     assert "cookies_before_consent_detected" in factor_codes(result)
     assert "advertising_before_consent_detected" in factor_codes(result)
     assert result.level == "medium"
+    assert_score_level_consistent(result)
+
+
+def test_cookie_browser_only_risk_is_capped_at_medium_score() -> None:
+    result = RiskService().assess(cookies=make_cookie_only_risk(), check=make_check())
+
+    assert result.total_score <= 85
+    assert result.total_score == 85
+    assert result.level == "medium"
+    assert {
+        "cookie_banner_not_found",
+        "cookies_before_consent_detected",
+        "advertising_before_consent_detected",
+        "cookie_reject_button_not_found",
+        "cookie_reject_did_not_reduce_tracking",
+    }.issubset(factor_codes(result))
+    assert_score_level_consistent(result)
+
+
+def test_cookie_browser_cap_does_not_hide_non_cookie_high_risk() -> None:
+    result = RiskService().assess(
+        cookies=make_cookie_only_risk(),
+        authentication=AuthenticationResult(
+            found=True,
+            providers=[AuthProviderItem(provider="Google", page_url="https://example.ru")],
+        ),
+        check=make_check(),
+    )
+
+    assert result.total_score > 85
+    assert result.level == "high"
+    assert "foreign_auth_detected" in factor_codes(result)
+    assert_score_level_consistent(result)
 
 
 def test_cookie_advertising_evidence_is_deduplicated_and_limited() -> None:

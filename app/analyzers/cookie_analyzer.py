@@ -56,6 +56,7 @@ class CookieAnalyzer:
         banner_candidates: list[CookieBannerCandidate] = []
         warnings: list[str] = []
         visible_text_seen = False
+        interaction = browser_check.cookie_interaction
 
         for page in browser_check.items:
             if not page.browser_check_performed:
@@ -95,22 +96,31 @@ class CookieAnalyzer:
             banner_found=banner_found,
             reject_found=reject_found,
         )
+        interaction_flags = self._interaction_flags(interaction)
+        warnings.extend(interaction_flags["warnings"])
 
         return CookieAnalysisResult(
             browser_check_available=True,
             analyzed=True,
             banner_found=banner_found,
-            accept_button_found=accept_found,
-            reject_button_found=reject_found,
-            settings_button_found=settings_found,
+            accept_button_found=accept_found or interaction_flags["accept_button_found"],
+            reject_button_found=reject_found or interaction_flags["reject_button_found"],
+            settings_button_found=settings_found or interaction_flags["settings_button_found"],
             cookies_before_consent_found=cookies_found,
             third_party_cookies_before_consent_found=third_party_cookies_found,
             analytics_requests_before_consent_found=analytics_requests_found,
             advertising_requests_before_consent_found=advertising_requests_found,
             third_party_requests_before_consent_found=third_party_requests_found,
+            interaction_available=bool(interaction and interaction.performed),
+            reject_test_performed=interaction_flags["reject_test_performed"],
+            accept_test_performed=interaction_flags["accept_test_performed"],
+            cookies_reduced_after_reject=interaction_flags["cookies_reduced_after_reject"],
+            analytics_reduced_after_reject=interaction_flags["analytics_reduced_after_reject"],
+            advertising_reduced_after_reject=interaction_flags["advertising_reduced_after_reject"],
             banner_candidates=banner_candidates,
             cookies_before_consent=cookies,
             requests_before_consent=requests,
+            interaction=interaction,
             warnings=warnings,
             message="Cookie-поведение проанализировано по данным браузерной проверки.",
         )
@@ -237,6 +247,47 @@ class CookieAnalyzer:
             warnings.append("Найден cookie-баннер, но не найдена явная кнопка отклонения.")
         if not banner_found:
             warnings.append("На момент браузерной проверки cookie-баннер не найден или не был распознан автоматически.")
+
+    def _interaction_flags(self, interaction) -> dict:
+        if not interaction or not interaction.performed:
+            return {
+                "reject_button_found": False,
+                "accept_button_found": False,
+                "settings_button_found": False,
+                "reject_test_performed": False,
+                "accept_test_performed": False,
+                "cookies_reduced_after_reject": None,
+                "analytics_reduced_after_reject": None,
+                "advertising_reduced_after_reject": None,
+                "warnings": [],
+            }
+
+        reject_button_found = any(button.action_type == "reject" for button in interaction.buttons_found)
+        accept_button_found = any(button.action_type == "accept" for button in interaction.buttons_found)
+        settings_button_found = any(button.action_type == "settings" for button in interaction.buttons_found)
+        warnings: list[str] = []
+        if not reject_button_found:
+            warnings.append("Явная кнопка отклонения cookie не была найдена автоматически.")
+        if interaction.reject_clicked and (
+            interaction.cookies_reduced_after_reject is False
+            or interaction.analytics_reduced_after_reject is False
+            or interaction.advertising_reduced_after_reject is False
+        ):
+            warnings.append(
+                "После нажатия кнопки отклонения количество cookies или сетевых запросов не уменьшилось; требуется ручная проверка."
+            )
+
+        return {
+            "reject_button_found": reject_button_found,
+            "accept_button_found": accept_button_found,
+            "settings_button_found": settings_button_found,
+            "reject_test_performed": interaction.reject_clicked,
+            "accept_test_performed": interaction.accept_clicked,
+            "cookies_reduced_after_reject": interaction.cookies_reduced_after_reject,
+            "analytics_reduced_after_reject": interaction.analytics_reduced_after_reject,
+            "advertising_reduced_after_reject": interaction.advertising_reduced_after_reject,
+            "warnings": warnings,
+        }
 
     def _matches_domain(self, domain: str | None, candidates: tuple[str, ...]) -> bool:
         if not domain:

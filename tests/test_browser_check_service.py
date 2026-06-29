@@ -6,6 +6,7 @@ from app.infrastructure.browser_client import BrowserClient
 from app.schemas.browser import (
     BrowserCheckResult,
     BrowserCookieItem,
+    CookieInteractionResult,
     BrowserNetworkRequest,
     BrowserPageResult,
 )
@@ -52,6 +53,19 @@ class FakeBrowserClient:
                 )
                 for i in range(3)
             ],
+        )
+
+    async def check_cookie_interaction(
+        self,
+        url: str,
+        source_domain: str | None = None,
+    ) -> CookieInteractionResult:
+        return CookieInteractionResult(
+            enabled=True,
+            performed=True,
+            banner_found=False,
+            reject_clicked=False,
+            accept_clicked=False,
         )
 
 
@@ -150,6 +164,7 @@ async def test_browser_check_service_returns_cookies_network_and_limits_requests
     result = await BrowserCheckService(
         browser_client=FakeBrowserClient(),
         enabled=True,
+        cookie_interaction_enabled=False,
         max_network_requests=2,
     ).check(["https://example.ru"], source_domain="example.ru")
 
