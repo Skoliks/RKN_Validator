@@ -78,6 +78,34 @@ class TimeoutCookieInteractionClient(FakeBrowserClient):
         raise TimeoutError()
 
 
+class FailedBrowserClient(FakeBrowserClient):
+    async def check_page(self, url: str, source_domain: str | None = None) -> BrowserPageResult:
+        return BrowserPageResult(
+            browser_check_performed=False,
+            url=url,
+            error_type="timeout",
+            message="Page.goto timeout",
+        )
+
+    async def check_cookie_interaction(
+        self,
+        url: str,
+        source_domain: str | None = None,
+    ) -> CookieInteractionResult:
+        raise AssertionError("Cookie interaction must not run after page load failure.")
+
+
+class FallbackPage:
+    def __init__(self, timeout_error) -> None:
+        self.timeout_error = timeout_error
+        self.wait_until_values: list[str] = []
+
+    async def goto(self, url: str, wait_until: str, timeout: int) -> None:
+        self.wait_until_values.append(wait_until)
+        if wait_until == "networkidle":
+            raise self.timeout_error("networkidle timeout")
+
+
 @pytest.mark.asyncio
 async def test_browser_check_service_returns_disabled_result_when_off() -> None:
     result = await BrowserCheckService(
@@ -198,7 +226,7 @@ async def test_browser_check_service_handles_cookie_interaction_timeout() -> Non
 
     assert interaction is not None
     assert interaction.enabled is True
-    assert interaction.performed is True
+    assert interaction.performed is False
     assert interaction.banner_found is False
     assert interaction.buttons_found == []
     assert interaction.reject_clicked is False
@@ -208,3 +236,30 @@ async def test_browser_check_service_handles_cookie_interaction_timeout() -> Non
         in interaction.warnings
     )
     assert "Cookie interaction check failed: TimeoutError." in interaction.warnings
+
+
+@pytest.mark.asyncio
+async def test_browser_client_networkidle_timeout_falls_back_to_load() -> None:
+    playwright = pytest.importorskip("playwright.async_api")
+    page = FallbackPage(playwright.TimeoutError)
+
+    warnings = await BrowserClient(navigation_wait_until="networkidle")._goto_with_fallback(
+        page=page,
+        url="https://example.ru",
+        timeout_ms=100,
+    )
+
+    assert page.wait_until_values == ["networkidle", "load"]
+    assert warnings == ["networkidle timeout, fallback to domcontentloaded/load was used"]
+
+
+@pytest.mark.asyncio
+async def test_cookie_interaction_not_marked_successful_when_page_load_failed() -> None:
+    result = await BrowserCheckService(
+        browser_client=FailedBrowserClient(),
+        enabled=True,
+        cookie_interaction_enabled=True,
+    ).check(["https://example.ru"], source_domain="example.ru")
+
+    assert result.performed is False
+    assert result.cookie_interaction is None

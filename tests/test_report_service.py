@@ -630,6 +630,30 @@ def test_report_recommendations_do_not_include_irrelevant_items() -> None:
     assert "mixed content" not in text
 
 
+def test_report_does_not_recommend_cookie_banner_without_cookie_evidence() -> None:
+    report = ReportService().build(
+        make_check_result(
+            cookies=CookieAnalysisResult(
+                browser_check_available=True,
+                analyzed=True,
+                banner_found=False,
+                cookies_before_consent_found=False,
+                third_party_cookies_before_consent_found=False,
+                analytics_requests_before_consent_found=False,
+                advertising_requests_before_consent_found=False,
+                third_party_requests_before_consent_found=False,
+                interaction_available=True,
+                reject_button_found=False,
+            )
+        )
+    )
+
+    text = " ".join([*report.summary, *report.recommendations, *report.manual_review_required])
+
+    assert "Cookie-баннер не был найден" not in text
+    assert "cookie-баннер" not in text.lower()
+
+
 def test_report_recommendations_are_deduped() -> None:
     report = ReportService().build(
         make_check_result(

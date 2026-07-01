@@ -4,6 +4,7 @@ from app.analyzers.cookie_analyzer import CookieAnalyzer
 from app.schemas.browser import (
     BrowserCheckResult,
     BrowserCookieItem,
+    CookieInteractionResult,
     BrowserNetworkRequest,
     BrowserPageResult,
 )
@@ -45,6 +46,7 @@ def browser_check(
     cookies: list[BrowserCookieItem] | None = None,
     requests: list[BrowserNetworkRequest] | None = None,
     visible_text: str | None = None,
+    interaction: CookieInteractionResult | None = None,
 ) -> BrowserCheckResult:
     return BrowserCheckResult(
         enabled=True,
@@ -60,6 +62,7 @@ def browser_check(
                 network_requests=requests or [],
             )
         ],
+        cookie_interaction=interaction,
     )
 
 
@@ -191,7 +194,51 @@ def test_cookie_analyzer_detects_settings_button() -> None:
 def test_cookie_analyzer_warns_when_banner_has_no_reject_button() -> None:
     result = CookieAnalyzer().analyze(browser_check(visible_text="Мы используем cookie. Принять"))
 
-    assert "не найдена явная кнопка отклонения" in " ".join(result.warnings)
+    assert "явная кнопка отклонения не была найдена автоматически" in " ".join(result.warnings)
+
+
+def test_cookie_analyzer_does_not_warn_about_missing_banner_without_cookie_evidence() -> None:
+    result = CookieAnalyzer().analyze(browser_check(visible_text="Example Domain"))
+
+    assert result.analyzed is True
+    assert result.cookies_before_consent_found is False
+    assert not any("баннер не найден" in warning.lower() for warning in result.warnings)
+
+
+def test_cookie_analyzer_does_not_warn_about_reject_button_without_cookie_evidence() -> None:
+    result = CookieAnalyzer().analyze(
+        browser_check(
+            visible_text="Example Domain",
+            interaction=CookieInteractionResult(
+                enabled=True,
+                performed=True,
+                banner_found=False,
+                reject_clicked=False,
+                accept_clicked=False,
+            ),
+        )
+    )
+
+    assert result.warnings == []
+
+
+def test_cookie_analyzer_preserves_text_banner_when_interaction_does_not_find_it() -> None:
+    result = CookieAnalyzer().analyze(
+        browser_check(
+            visible_text="Мы используем cookie. Принять",
+            interaction=CookieInteractionResult(
+                enabled=True,
+                performed=True,
+                banner_found=False,
+                reject_clicked=False,
+                accept_clicked=False,
+                warnings=["Cookie banner was not found automatically."],
+            ),
+        )
+    )
+
+    assert result.banner_found is True
+    assert not any("banner was not found" in warning.lower() for warning in result.warnings)
 
 
 @pytest.mark.asyncio

@@ -199,6 +199,23 @@ async def test_check_service_site_with_google_tag_manager() -> None:
 
 
 @pytest.mark.asyncio
+async def test_check_service_invalid_external_urls_do_not_fail_check() -> None:
+    service = make_service(
+        crawl=CrawlResult(
+            pages=[
+                make_page('<html><a href="[bad:url">bad</a><img src="http://[bad"></html>')
+            ]
+        )
+    )
+
+    result = await service.check("https://example.ru")
+
+    assert result.check.status == "completed"
+    assert result.external_services is not None
+    assert result.external_services.items == []
+
+
+@pytest.mark.asyncio
 async def test_check_service_includes_owner_requisites() -> None:
     service = make_service(
         crawl=CrawlResult(

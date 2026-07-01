@@ -82,15 +82,20 @@ class ReportService:
 
         cookies = check_result.cookies
         if cookies and cookies.analyzed:
+            cookie_evidence_found = self._cookie_evidence_found(cookies)
             if cookies.cookies_before_consent_found:
                 items.append(
                     "На момент браузерной проверки обнаружены cookies после первичной загрузки страницы до явного выбора пользователя."
                 )
-            if not cookies.banner_found:
+            if not cookies.banner_found and cookie_evidence_found:
                 items.append(
                     "Cookie-баннер не был найден или не был распознан автоматически; требуется ручная проверка."
                 )
-            if cookies.interaction_available and not cookies.reject_button_found:
+            if (
+                (cookies.banner_found or cookie_evidence_found)
+                and cookies.interaction_available
+                and not cookies.reject_button_found
+            ):
                 items.append(
                     "Явная кнопка отклонения cookie не была найдена автоматически; требуется ручная проверка."
                 )
@@ -172,8 +177,12 @@ class ReportService:
         cookies = check_result.cookies
         if cookies and cookies.analyzed and (
             cookies.cookies_before_consent_found
-            or not cookies.banner_found
-            or (cookies.interaction_available and not cookies.reject_button_found)
+            or (not cookies.banner_found and self._cookie_evidence_found(cookies))
+            or (
+                (cookies.banner_found or self._cookie_evidence_found(cookies))
+                and cookies.interaction_available
+                and not cookies.reject_button_found
+            )
         ):
             items.append(
                 "Проверить наличие и содержание cookie-баннера, включая возможность отклонения необязательных cookies."
@@ -276,8 +285,12 @@ class ReportService:
         ):
             items.append("Назначение cookies и сторонних сетевых запросов.")
         if cookies and cookies.analyzed and (
-            not cookies.banner_found
-            or (cookies.interaction_available and not cookies.reject_button_found)
+            (not cookies.banner_found and self._cookie_evidence_found(cookies))
+            or (
+                (cookies.banner_found or self._cookie_evidence_found(cookies))
+                and cookies.interaction_available
+                and not cookies.reject_button_found
+            )
         ):
             items.append("Наличие возможности отклонить необязательные cookies.")
 
@@ -319,6 +332,15 @@ class ReportService:
                 "Браузерная проверка не выполнялась, поэтому cookies, динамические запросы и часть сторонних сервисов могли быть не обнаружены."
             )
         return self._dedupe_text(items)
+
+    def _cookie_evidence_found(self, cookies) -> bool:
+        return bool(
+            cookies.cookies_before_consent_found
+            or cookies.third_party_cookies_before_consent_found
+            or cookies.analytics_requests_before_consent_found
+            or cookies.advertising_requests_before_consent_found
+            or cookies.third_party_requests_before_consent_found
+        )
 
     def _factor_text(self, factors: list[RiskFactor]) -> str:
         labels: list[str] = []

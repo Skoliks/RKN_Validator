@@ -1,3 +1,4 @@
+import re
 from urllib.parse import urlsplit
 
 from app.core.config import settings
@@ -42,12 +43,24 @@ class BrowserClient:
     settings_keywords = (
         "настроить",
         "настройки",
-        "подробнее",
         "управление",
+        "управлять",
+        "параметры",
+        "подробнее о cookie",
+        "политика cookie",
         "preferences",
         "settings",
         "customize",
         "manage",
+    )
+    cookie_context_keywords = (
+        "cookie",
+        "cookies",
+        "куки",
+        "файлы cookie",
+        "персональные данные",
+        "конфиденциальность",
+        "privacy",
     )
     unsafe_click_keywords = (
         "заказать",
@@ -139,10 +152,10 @@ class BrowserClient:
                     ),
                 )
 
-                await page.goto(
-                    url,
-                    wait_until=self.navigation_wait_until,
-                    timeout=int(self.timeout_seconds * 1000),
+                navigation_warnings = await self._goto_with_fallback(
+                    page=page,
+                    url=url,
+                    timeout_ms=int(self.timeout_seconds * 1000),
                 )
                 title = await page.title()
                 final_url = page.url
@@ -160,7 +173,7 @@ class BrowserClient:
                     console_errors=console_errors,
                     error_type=None,
                     message=None,
-                    warnings=[],
+                    warnings=navigation_warnings,
                 )
                 await context.close()
                 context = None
@@ -314,11 +327,12 @@ class BrowserClient:
                     network_requests=network_requests,
                 ),
             )
-            await page.goto(
-                url,
-                wait_until=self.navigation_wait_until,
-                timeout=int(self.cookie_interaction_timeout_seconds * 1000),
+            navigation_warnings = await self._goto_with_fallback(
+                page=page,
+                url=url,
+                timeout_ms=int(self.cookie_interaction_timeout_seconds * 1000),
             )
+            warnings.extend(navigation_warnings)
             buttons = await self._find_cookie_buttons(page)
             initial_snapshot = await self._interaction_snapshot(
                 stage="initial",
@@ -412,6 +426,36 @@ class BrowserClient:
 
         return normalized, path, has_query, original_url_truncated
 
+    async def _goto_with_fallback(self, page, url: str, timeout_ms: int) -> list[str]:
+        try:
+            from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+        except ImportError:
+            PlaywrightTimeoutError = TimeoutError
+
+        wait_until_values = [self.navigation_wait_until]
+        if self.navigation_wait_until == "networkidle":
+            wait_until_values.extend(["load", "domcontentloaded"])
+
+        warnings: list[str] = []
+        last_timeout = None
+        for index, wait_until in enumerate(wait_until_values):
+            try:
+                await page.goto(url, wait_until=wait_until, timeout=timeout_ms)
+                if index > 0:
+                    warnings.append(
+                        "networkidle timeout, fallback to domcontentloaded/load was used"
+                    )
+                return warnings
+            except PlaywrightTimeoutError as exc:
+                last_timeout = exc
+                if index < len(wait_until_values) - 1:
+                    continue
+                raise
+
+        if last_timeout:
+            raise last_timeout
+        return warnings
+
     async def _find_cookie_buttons(self, page) -> list[CookieInteractionButton]:
         raw_buttons = await page.evaluate(
             """
@@ -428,7 +472,18 @@ class BrowserClient:
                   label: label.slice(0, textLimit),
                   selector: `[data-cookie-check-id="${id}"]`,
                   visible: !!(rect.width && rect.height),
-                  enabled: !element.disabled && element.getAttribute('aria-disabled') !== 'true'
+                  enabled: !element.disabled && element.getAttribute('aria-disabled') !== 'true',
+                  context: (() => {
+                    let current = element.parentElement;
+                    for (let depth = 0; current && depth < 4; depth += 1) {
+                      const text = (current.innerText || '').trim();
+                      if (text.length > 0) {
+                        return text.slice(0, textLimit);
+                      }
+                      current = current.parentElement;
+                    }
+                    return '';
+                  })()
                 };
               });
             }
@@ -439,7 +494,8 @@ class BrowserClient:
         buttons: list[CookieInteractionButton] = []
         for raw_button in raw_buttons:
             label = raw_button.get("label") or ""
-            action_type = self._classify_cookie_button(label)
+            context = raw_button.get("context") or ""
+            action_type = self._classify_cookie_button(label, context=context)
             if action_type is None:
                 continue
 
@@ -455,19 +511,36 @@ class BrowserClient:
 
         return buttons
 
-    def _classify_cookie_button(self, label: str) -> str | None:
+    def _classify_cookie_button(self, label: str, context: str | None = None) -> str | None:
         lowered = " ".join(label.lower().split())
         if not lowered:
             return None
-        if any(keyword in lowered for keyword in self.unsafe_click_keywords):
+        if self._has_keyword(lowered, self.unsafe_click_keywords):
             return None
-        if any(keyword in lowered for keyword in self.reject_keywords):
+        context_lowered = " ".join((context or "").lower().split())
+        if context is not None and not self._has_cookie_context(lowered, context_lowered):
+            return None
+        if self._has_keyword(lowered, self.reject_keywords):
             return "reject"
-        if any(keyword in lowered for keyword in self.accept_keywords):
+        if self._has_keyword(lowered, self.accept_keywords):
             return "accept"
-        if any(keyword in lowered for keyword in self.settings_keywords):
+        if self._has_keyword(lowered, self.settings_keywords):
             return "settings"
         return None
+
+    def _has_cookie_context(self, label: str, context: str) -> bool:
+        value = f"{label} {context}"
+        return any(keyword in value for keyword in self.cookie_context_keywords)
+
+    def _has_keyword(self, value: str, keywords: tuple[str, ...]) -> bool:
+        for keyword in keywords:
+            if len(keyword) <= 2:
+                if re.search(rf"(?<![a-zа-яё0-9]){re.escape(keyword)}(?![a-zа-яё0-9])", value):
+                    return True
+                continue
+            if keyword in value:
+                return True
+        return False
 
     def _best_button(
         self,

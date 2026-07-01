@@ -250,19 +250,39 @@ def test_facebook_company_link_is_not_external_resource_factor() -> None:
     assert "external_resource_detected" not in factor_codes(result)
 
 
+def test_plain_external_link_is_not_external_resource_factor() -> None:
+    result = RiskService().assess(
+        forms=FormsResult(),
+        external_services=ExternalServicesResult(
+            found=True,
+            items=[
+                ExternalServiceItem(
+                    service_type="external_link",
+                    url="https://iana.org/domains/example",
+                    page_url="https://example.com",
+                )
+            ],
+        ),
+        security=SecurityResult(https_enabled=True),
+        check=make_check(),
+    )
+
+    assert "external_resource_detected" not in factor_codes(result)
+
+
 def test_service_evidence_does_not_contain_duplicates_after_html_unescape() -> None:
     result = RiskService().assess(
         external_services=ExternalServicesResult(
             found=True,
             items=[
                 ExternalServiceItem(
-                    service_type="external_link",
+                    service_type="external_resource",
                     provider="Partner",
                     url="https://partner.example.com/widget?a=1&amp;b=2",
                     page_url="https://example.ru",
                 ),
                 ExternalServiceItem(
-                    service_type="external_link",
+                    service_type="external_resource",
                     provider="Partner",
                     url="https://partner.example.com/widget?a=1&b=2",
                     page_url="https://example.ru",

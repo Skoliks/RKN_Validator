@@ -1,156 +1,188 @@
 # Site Compliance Checker
 
-MVP backend-сервис для первичной технической проверки сайтов на признаки потенциальных правовых рисков.
+Backend-MVP сервис для предварительной технической проверки сайта по внешним признакам: cookies, сторонние сервисы, реклама, базовая доступность, внешняя инфраструктура, реквизиты владельца, HTTPS/mixed content и другие факторы.
 
-Сервис не выполняет юридическую экспертизу и не устанавливает факт нарушения законодательства. Он выявляет технические и документные признаки потенциального риска на проверенных страницах сайта, после чего рекомендуется ручная проверка.
+Результат не является юридическим заключением. Сервис показывает технические признаки на проверенных страницах и формирует список пунктов для ручной проверки.
 
-## Границы MVP
+## Возможности MVP
 
-В MVP реализована синхронная проверка одного сайта через HTTP API:
+- Нормализация URL.
+- Проверка доступности сайта.
+- Ограниченный crawl страниц.
+- Анализ форм и признаков сбора данных.
+- Поиск политики конфиденциальности.
+- Анализ признаков согласий рядом с формами.
+- Анализ внешних сервисов.
+- Проверка HTTPS и mixed content.
+- Поиск признаков российского рынка.
+- Поиск реквизитов владельца сайта.
+- Проверка применимости идентификации администратора домена через ЕСИА по доменной зоне.
+- Опциональный browser check на Playwright.
+- CookieAnalyzer для cookies и сетевых запросов до явного выбора пользователя.
+- Опциональный cookie interaction check для распознанных cookie-кнопок.
+- AdvertisingAnalyzer для рекламных сервисов, erid, маркировки и возможных рекламных блоков.
+- AccessibilityAnalyzer для базовых технических признаков доступности.
+- InfrastructureAnalyzer для сторонних доменов и категорий внешней инфраструктуры.
+- Risk assessment.
+- Structured report: `summary`, `recommendations`, `checked_areas`, `manual_review_required`, `limitations`.
 
-- нормализация URL;
-- проверка доступности сайта;
-- ограниченный обход страниц;
-- анализ форм, согласий, политики, внешних сервисов, HTTPS, cookie-признаков, рекламных признаков, иностранных провайдеров авторизации и признаков ориентации на российских пользователей;
-- техническая оценка риска по балльной системе;
-- шаблонный отчёт без LLM.
+## Ограничения
 
-## Стек
+- Автоматическая проверка не является юридическим заключением.
+- Проверяются только доступные страницы и данные, доступные на момент проверки.
+- Динамическое поведение сайта может зависеть от региона, устройства, сессии и состояния сайта.
+- Сервис не определяет фактическое место хранения персональных данных.
+- Whois, GeoIP, РКН API и внешние API не используются.
+- Accessibility check не заменяет полноценный аудит доступности.
+- Advertising check не подтверждает и не исключает нарушение.
+- Cookie check требует ручной проверки назначения cookies, баннера и возможности отклонения необязательных cookies.
 
-- Python 3.12+
-- FastAPI
-- Pydantic v2
-- pydantic-settings
-- httpx
-- BeautifulSoup4 + lxml
-- tldextract
-- Playwright (optional browser check)
-- pytest, pytest-asyncio, pytest-httpx
-- Docker / Docker Compose
+## Быстрый запуск локально
 
-## Локальный запуск
+Windows PowerShell:
 
 ```powershell
-python -m venv venv
-venv\Scripts\python.exe -m pip install -r requirements.txt
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m playwright install chromium
 Copy-Item .env.example .env
-venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+uvicorn app.main:app --reload
 ```
 
-Swagger/OpenAPI:
+Linux/macOS:
 
-```text
-http://127.0.0.1:8000/docs
-http://127.0.0.1:8000/openapi.json
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m playwright install chromium
+cp .env.example .env
+uvicorn app.main:app --reload
 ```
+
+Playwright нужен только для `ENABLE_BROWSER_CHECK=true`. При выключенном browser check обычная HTTP/BeautifulSoup проверка работает без запуска браузера.
 
 ## Запуск через Docker
 
-```powershell
-Copy-Item .env.example .env
+```bash
+cp .env.example .env
 docker compose up --build
 ```
 
-Остановить:
-
-```powershell
-docker compose down
-```
-
-## Browser Check With Playwright
-
-Браузерная проверка выключена по умолчанию и не меняет обычный `httpx`-пайплайн.
-
-Установка Python-пакета:
-
-```powershell
-venv\Scripts\python.exe -m pip install playwright
-```
-
-Установка Chromium для Playwright выполняется отдельно:
-
-```powershell
-venv\Scripts\python.exe -m playwright install chromium
-```
-
-Включение:
-
-```env
-ENABLE_BROWSER_CHECK=true
-```
-
-Опциональная проверка взаимодействия с cookie-баннером выключена отдельно:
-
-```env
-ENABLE_COOKIE_INTERACTION_CHECK=true
-```
-
-`BrowserClient` собирает cookies после загрузки страницы, сетевые запросы, видимый текст страницы и ошибки консоли. `CookieAnalyzer` использует эти данные для предварительного выявления признаков cookie-баннера, cookies после первичной загрузки до явного выбора пользователя и сторонних запросов. При включённом `ENABLE_COOKIE_INTERACTION_CHECK` сервис пробует безопасно найти cookie-кнопки и отдельно проверить сценарии "отклонить" и "принять" в чистых browser context. Проверка остаётся предварительной: сервис не делает юридический вывод, не отправляет формы, не кликает по бизнес-кнопкам и не делает скриншоты.
-
-`AdvertisingAnalyzer` добавляет отдельный блок `advertising` в результат проверки. Он предварительно ищет признаки рекламных сервисов, `erid`, явной маркировки рекламы, сведений о рекламодателе и возможных рекламных блоков по HTML-признакам, используя только уже собранные страницы, `ExternalServicesAnalyzer` и опциональные browser network данные. Блок не делает юридический вывод: автоматическая проверка не подтверждает и не исключает нарушение, а найденные признаки требуют ручной проверки.
-
-`AccessibilityAnalyzer` adds a separate `accessibility` block. It performs a preliminary technical check of crawled HTML for missing `html lang`, image `alt`, empty links/buttons, missing form labels, iframe titles, heading-order warnings, and duplicate `id` values. It does not replace a full accessibility audit and does not make legal conclusions; findings require manual review.
-
-`InfrastructureAnalyzer` adds a separate `infrastructure` block. It performs a preliminary analysis of third-party infrastructure domains and known service categories such as CDN, analytics, advertising, video, fonts, social, messenger, CRM, payment, maps, and API-like requests. It does not use Whois, GeoIP, RKN APIs, or external APIs, and it does not determine the factual hosting country or data storage location; findings require manual review.
-
-## Примеры запросов
-
-Healthcheck:
-
-```powershell
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/health" -Method Get
-```
-
-Проверка сайта:
-
-```powershell
-Invoke-RestMethod `
-  -Uri "http://127.0.0.1:8000/check" `
-  -Method Post `
-  -ContentType "application/json" `
-  -Body '{"url":"example.ru"}'
-```
-
-Пример cURL:
+Проверка:
 
 ```bash
-curl http://127.0.0.1:8000/health
-curl -X POST http://127.0.0.1:8000/check \
-  -H "Content-Type: application/json" \
-  -d '{"url":"example.ru"}'
+curl http://localhost:8000/health
 ```
 
-## Что не входит в MVP
+Dockerfile устанавливает Chromium через Playwright. Browser check внутри контейнера остаётся опциональным и включается через `.env`.
 
-- PostgreSQL
-- Redis
-- Celery / фоновые задачи
-- Telegram-бот
-- MCP-сервер
-- LLM
-- frontend
-- авторизация пользователей
-- история проверок
-- массовая проверка сайтов
+## API
+
+### GET /health
+
+```bash
+curl http://localhost:8000/health
+```
+
+Ответ:
+
+```json
+{"status":"ok"}
+```
+
+### POST /check
+
+```bash
+curl -X POST "http://localhost:8000/check" \
+  -H "Content-Type: application/json" \
+  -d "{\"url\":\"https://example.com\"}"
+```
+
+Тело запроса:
+
+```json
+{
+  "url": "https://example.com"
+}
+```
+
+## Пример структуры ответа
+
+Ответ `POST /check` содержит основные блоки:
+
+- `site`
+- `check`
+- `availability`
+- `domain_compliance`
+- `browser_check`
+- `cookies`
+- `advertising`
+- `accessibility`
+- `infrastructure`
+- `owner_requisites`
+- `forms`
+- `policy`
+- `external_services`
+- `security`
+- `risk_assessment`
+- `report`
+
+`report` имеет структуру:
+
+```json
+{
+  "summary": [],
+  "recommendations": [],
+  "checked_areas": [],
+  "manual_review_required": [],
+  "limitations": [],
+  "recommendation": "",
+  "llm_generated": false
+}
+```
+
+## Переменные окружения
+
+| Переменная | Значение по умолчанию | Назначение |
+|---|---:|---|
+| `APP_NAME` | `Site Compliance Checker` | Название приложения |
+| `APP_ENV` | `local` | Окружение |
+| `LOG_LEVEL` | `INFO` | Уровень логирования |
+| `ENABLE_BROWSER_CHECK` | `false` | Включает Playwright browser check |
+| `BROWSER_TIMEOUT_SECONDS` | `15` | Таймаут browser check |
+| `BROWSER_NAVIGATION_WAIT_UNTIL` | `networkidle` | Условие ожидания навигации Playwright |
+| `BROWSER_MAX_NETWORK_REQUESTS` | `200` | Лимит сетевых запросов в browser result |
+| `ENABLE_COOKIE_INTERACTION_CHECK` | `false` | Включает cookie interaction check |
+| `COOKIE_INTERACTION_TIMEOUT_SECONDS` | `10` | Таймаут cookie interaction |
+| `COOKIE_INTERACTION_TEXT_LIMIT` | `3000` | Лимит текста для поиска cookie-кнопок |
+| `REQUEST_TIMEOUT_SECONDS` | `10` | Таймаут HTTP-запросов |
+| `MAX_PAGES_PER_SITE` | `5` | Максимум страниц crawl |
+| `MAX_REQUESTS_PER_SITE` | `15` | Максимум HTTP-запросов crawl |
 
 ## Тесты
 
-```powershell
-venv\Scripts\python.exe -m pytest
+```bash
+pytest
 ```
 
-## Final backend MVP report
+или на Windows без активации окружения:
 
-The backend MVP now returns a structured `report` block in `POST /check`:
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
 
-- `summary`: short ordered findings.
-- `recommendations`: practical manual-review actions.
-- `checked_areas`: areas that were actually checked.
-- `manual_review_required`: items that need human confirmation.
-- `limitations`: stable limitations of the automatic pre-check.
+## Статус MVP
 
-The implemented backend analyzers and services include `UrlService`, `AvailabilityService`, `CrawlService`, optional `BrowserClient`, `CookieAnalyzer`, cookie interaction check, `AdvertisingAnalyzer`, `AccessibilityAnalyzer`, `InfrastructureAnalyzer`, `OwnerRequisitesAnalyzer`, `DomainComplianceAnalyzer`, `ExternalServicesAnalyzer`, `RiskService`, `ReportService`, and `POST /check`.
+Backend-MVP завершён.
 
-The result is a preliminary technical review only. It is not a legal opinion, does not determine factual personal-data storage location, does not use Whois/GeoIP/RKN/external APIs, and requires manual review for legal or operational conclusions.
+Возможные следующие этапы:
 
-Next stages are packaging, Docker hardening, report export, and later optional frontend, Telegram, or MCP surfaces outside the backend MVP.
+- экспорт отчёта в Markdown/HTML/PDF;
+- frontend;
+- Telegram bot;
+- MCP interface;
+- история проверок;
+- очередь задач и фоновые проверки;
+- расширенная проверка через внешние источники.

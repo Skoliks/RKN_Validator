@@ -45,8 +45,11 @@ class HttpsAnalyzer:
         if not action:
             return False
 
-        absolute_action = urljoin(page_url, action)
-        return urlsplit(absolute_action).scheme == "http"
+        try:
+            absolute_action = urljoin(page_url, action)
+            return urlsplit(absolute_action).scheme == "http"
+        except ValueError:
+            return False
 
     def _find_mixed_content(self, pages: list[PageData]) -> list[MixedContentItem]:
         items: list[MixedContentItem] = []
@@ -57,7 +60,10 @@ class HttpsAnalyzer:
                 continue
 
             page_url = page.final_url or page.url
-            if urlsplit(page_url).scheme != "https":
+            try:
+                if urlsplit(page_url).scheme != "https":
+                    continue
+            except ValueError:
                 continue
 
             soup = BeautifulSoup(page.html, "html.parser")
@@ -70,8 +76,11 @@ class HttpsAnalyzer:
                     if not isinstance(value, str):
                         continue
 
-                    url = urljoin(page_url, value.strip())
-                    if urlsplit(url).scheme != "http":
+                    try:
+                        url = urljoin(page_url, value.strip())
+                        if urlsplit(url).scheme != "http":
+                            continue
+                    except ValueError:
                         continue
 
                     key = (page_url, url, tag_name, attr_name)

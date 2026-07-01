@@ -77,7 +77,12 @@ class CookieAnalyzer:
             )
 
         requests = self._dedupe_requests(requests)
-        banner_found = bool(banner_candidates)
+        interaction_banner_found = bool(
+            interaction
+            and interaction.performed
+            and (interaction.banner_found or interaction.buttons_found)
+        )
+        banner_found = bool(banner_candidates) or interaction_banner_found
         accept_found = any(candidate.accept_found for candidate in banner_candidates)
         reject_found = any(candidate.reject_found for candidate in banner_candidates)
         settings_found = any(candidate.settings_found for candidate in banner_candidates)
@@ -86,6 +91,13 @@ class CookieAnalyzer:
         analytics_requests_found = any(item.category == "analytics" for item in requests)
         advertising_requests_found = any(item.category == "advertising" for item in requests)
         third_party_requests_found = bool(requests)
+        cookie_or_tracking_found = (
+            cookies_found
+            or third_party_cookies_found
+            or analytics_requests_found
+            or advertising_requests_found
+            or third_party_requests_found
+        )
 
         self._append_result_warnings(
             warnings=warnings,
@@ -93,11 +105,17 @@ class CookieAnalyzer:
             third_party_cookies_found=third_party_cookies_found,
             analytics_requests_found=analytics_requests_found,
             advertising_requests_found=advertising_requests_found,
+            third_party_requests_found=third_party_requests_found,
             banner_found=banner_found,
             reject_found=reject_found,
         )
         interaction_flags = self._interaction_flags(interaction)
-        warnings.extend(interaction_flags["warnings"])
+        interaction_warnings = interaction_flags["warnings"]
+        if banner_found:
+            interaction_warnings = self._without_banner_not_found_warnings(interaction_warnings)
+        elif not cookie_or_tracking_found:
+            interaction_warnings = []
+        warnings.extend(interaction_warnings)
 
         return CookieAnalysisResult(
             browser_check_available=True,
@@ -230,9 +248,17 @@ class CookieAnalyzer:
         third_party_cookies_found: bool,
         analytics_requests_found: bool,
         advertising_requests_found: bool,
+        third_party_requests_found: bool,
         banner_found: bool,
         reject_found: bool,
     ) -> None:
+        cookie_or_tracking_found = (
+            cookies_found
+            or third_party_cookies_found
+            or analytics_requests_found
+            or advertising_requests_found
+            or third_party_requests_found
+        )
         if cookies_found:
             warnings.append(
                 "На момент браузерной проверки обнаружены cookies после первичной загрузки страницы до явного выбора пользователя."
@@ -244,8 +270,8 @@ class CookieAnalyzer:
         if advertising_requests_found:
             warnings.append("Обнаружены запросы к рекламным сервисам до явного выбора пользователя.")
         if banner_found and not reject_found:
-            warnings.append("Найден cookie-баннер, но не найдена явная кнопка отклонения.")
-        if not banner_found:
+            warnings.append("Найден cookie-баннер, но явная кнопка отклонения не была найдена автоматически.")
+        if not banner_found and cookie_or_tracking_found:
             warnings.append("На момент браузерной проверки cookie-баннер не найден или не был распознан автоматически.")
 
     def _interaction_flags(self, interaction) -> dict:
@@ -288,6 +314,14 @@ class CookieAnalyzer:
             "advertising_reduced_after_reject": interaction.advertising_reduced_after_reject,
             "warnings": warnings,
         }
+
+    def _without_banner_not_found_warnings(self, warnings: list[str]) -> list[str]:
+        return [
+            warning
+            for warning in warnings
+            if "banner" not in warning.lower()
+            and "баннер" not in warning.lower()
+        ]
 
     def _matches_domain(self, domain: str | None, candidates: tuple[str, ...]) -> bool:
         if not domain:

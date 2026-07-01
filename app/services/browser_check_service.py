@@ -67,8 +67,9 @@ class BrowserCheckService:
             page_result = await self.browser_client.check_page(url, source_domain=source_domain)
             items.append(self._limit_network_requests(page_result))
 
+        browser_performed = any(item.browser_check_performed for item in items)
         cookie_interaction = None
-        if self.cookie_interaction_enabled:
+        if self.cookie_interaction_enabled and browser_performed:
             try:
                 cookie_interaction = await self.browser_client.check_cookie_interaction(
                     urls[0],
@@ -83,7 +84,7 @@ class BrowserCheckService:
 
         return BrowserCheckResult(
             enabled=True,
-            performed=any(item.browser_check_performed for item in items),
+            performed=browser_performed,
             pages_checked=len(items),
             items=items,
             cookie_interaction=cookie_interaction,
@@ -120,7 +121,7 @@ class BrowserCheckService:
     def _cookie_interaction_error_result(self, exc: Exception) -> CookieInteractionResult:
         return CookieInteractionResult(
             enabled=True,
-            performed=True,
+            performed=False,
             banner_found=False,
             buttons_found=[],
             reject_clicked=False,
@@ -145,20 +146,6 @@ class BrowserCheckService:
                     }
                 )
             return result
-
-        if self._has_timeout_warning(result.warnings):
-            return result.model_copy(
-                update={
-                    "performed": True,
-                    "banner_found": False,
-                    "buttons_found": [],
-                    "reject_clicked": False,
-                    "accept_clicked": False,
-                    "warnings": self._with_cookie_interaction_not_found_warning(
-                        result.warnings
-                    ),
-                }
-            )
 
         return result
 

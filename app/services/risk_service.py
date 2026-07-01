@@ -18,7 +18,7 @@ from app.schemas.security import SecurityResult
 
 class RiskService:
     analytics_types = {"analytics", "tag_manager"}
-    link_only_types = {"social_network", "messenger"}
+    link_only_types = {"external_link", "social_network", "messenger"}
     preliminary_cookie_factor_codes = {
         "cookie_banner_not_found",
         "cookies_before_consent_detected",
@@ -314,7 +314,10 @@ class RiskService:
             not cookies.banner_found
             and (
                 cookies.cookies_before_consent_found
+                or cookies.third_party_cookies_before_consent_found
                 or cookies.analytics_requests_before_consent_found
+                or cookies.advertising_requests_before_consent_found
+                or cookies.third_party_requests_before_consent_found
             )
         ):
             factors.append(

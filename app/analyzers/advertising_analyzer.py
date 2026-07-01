@@ -46,9 +46,9 @@ class AdvertisingAnalyzer:
         re.IGNORECASE,
     )
     erid_patterns = (
-        re.compile(r"(?i)\berid\b"),
-        re.compile(r"(?i)erid[:= ]+[a-zа-яё0-9._-]{6,}"),
+        re.compile(r"(?i)\berid\b\s*(?:=|:|\s)\s*([a-z0-9][a-z0-9._-]{5,})"),
     )
+    invalid_erid_values = {"setinterval", "settimeout", "function", "undefined", "null"}
     ad_label_pattern = re.compile(r"(?iu)(?<![а-яёa-z])(?:реклама|advertisement)(?![а-яёa-z])")
     advertiser_pattern = re.compile(r"(?iu)(?<![а-яёa-z])рекламодатель(?![а-яёa-z])")
     sponsored_pattern = re.compile(r"(?iu)(?<![а-яёa-z])(?:спонсорский|sponsored)(?![а-яёa-z])")
@@ -140,8 +140,11 @@ class AdvertisingAnalyzer:
                 raw_url = tag.get(attr_name)
                 if not isinstance(raw_url, str):
                     continue
+                url = self._build_url(raw_url, page_url)
+                if not url:
+                    continue
                 self._add_service(
-                    url=self._normalize_url(urljoin(page_url, raw_url)),
+                    url=url,
                     page_url=page_url,
                     source="html",
                     services=services,
@@ -149,8 +152,11 @@ class AdvertisingAnalyzer:
                 )
 
         for match in self.fallback_url_pattern.finditer(html):
+            url = self._build_url(match.group(1).strip(), page_url)
+            if not url:
+                continue
             self._add_service(
-                url=self._normalize_url(urljoin(page_url, match.group(1).strip())),
+                url=url,
                 page_url=page_url,
                 source="html",
                 services=services,
@@ -328,6 +334,8 @@ class AdvertisingAnalyzer:
                 continue
 
             value = match.group(0)
+            if item_type == "erid" and not self._valid_erid_match(match):
+                continue
             self._add_text_item(
                 item_type=item_type,
                 value=value,
@@ -337,6 +345,15 @@ class AdvertisingAnalyzer:
                 seen=seen,
             )
             return
+
+    def _valid_erid_match(self, match: re.Match[str]) -> bool:
+        value = match.group(1) if match.groups() else match.group(0)
+        normalized = value.strip().lower()
+        if normalized in self.invalid_erid_values:
+            return False
+        if normalized.startswith(("setinterval", "settimeout")):
+            return False
+        return bool(re.fullmatch(r"[a-z0-9][a-z0-9._-]{5,}", normalized))
 
     def _add_text_item(
         self,
@@ -402,8 +419,17 @@ class AdvertisingAnalyzer:
     def _normalize_url(self, url: str) -> str:
         return unescape(url).strip()
 
+    def _build_url(self, raw_url: str, page_url: str) -> str | None:
+        try:
+            return self._normalize_url(urljoin(page_url, raw_url))
+        except ValueError:
+            return None
+
     def _extract_domain(self, url: str) -> str | None:
-        parsed = urlsplit(url)
+        try:
+            parsed = urlsplit(url)
+        except ValueError:
+            return None
         if parsed.scheme not in {"http", "https"}:
             return None
         return parsed.hostname.lower().rstrip(".") if parsed.hostname else None

@@ -161,7 +161,9 @@ class InfrastructureAnalyzer:
                 raw = tag.get(attr_name)
                 if not isinstance(raw, str) or not raw.strip():
                     continue
-                url = self._normalize_url(urljoin(page_url, raw.strip()))
+                url = self._build_url(raw.strip(), page_url)
+                if not url:
+                    continue
                 domain = self._domain_from_url(url)
                 if not domain:
                     continue
@@ -387,13 +389,22 @@ class InfrastructureAnalyzer:
     def _domain_from_url(self, value: str | None) -> str | None:
         if not value:
             return None
-        parsed = urlsplit(value)
+        try:
+            parsed = urlsplit(value)
+        except ValueError:
+            return None
         if parsed.scheme not in {"http", "https"}:
             return None
         return self._normalize_domain(parsed.hostname or "")
 
     def _normalize_url(self, value: str) -> str:
         return unescape(value).strip()
+
+    def _build_url(self, raw_url: str, page_url: str) -> str | None:
+        try:
+            return self._normalize_url(urljoin(page_url, raw_url))
+        except ValueError:
+            return None
 
     def _normalize_domain(self, value: str | None) -> str | None:
         if not value:

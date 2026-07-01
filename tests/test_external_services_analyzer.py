@@ -114,3 +114,26 @@ def test_external_services_analyzer_handles_invalid_html() -> None:
 
     assert result.found is True
     assert result.items[0].provider == "Google Tag Manager"
+
+
+def test_external_services_analyzer_skips_invalid_urls_without_crashing() -> None:
+    html = '<a href="[bad:url">bad</a><img src="http://[bad">'
+
+    result = ExternalServicesAnalyzer().analyze([make_page(html)])
+
+    assert result.found is False
+    assert result.items == []
+
+
+def test_external_services_analyzer_splits_external_link_and_resource() -> None:
+    html = """
+    <a href="https://iana.org/domains/example">IANA</a>
+    <script src="https://cdn.example.net/app.js"></script>
+    """
+
+    result = ExternalServicesAnalyzer().analyze([make_page(html, url="https://example.com")])
+
+    assert {item.service_type for item in result.items} == {
+        "external_link",
+        "external_resource",
+    }

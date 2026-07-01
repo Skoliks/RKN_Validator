@@ -142,6 +142,23 @@ def test_browser_client_classifies_settings_button() -> None:
     assert BrowserClient()._classify_cookie_button("Настроить") == "settings"
 
 
+def test_browser_client_does_not_classify_project_details_as_cookie_settings() -> None:
+    client = BrowserClient()
+
+    assert client._classify_cookie_button(
+        "Подробнее о проекте",
+        context="Карточка проекта Подробнее о проекте",
+    ) is None
+    assert client._classify_cookie_button(
+        "Подробнее о cookie",
+        context="Сайт использует cookie. Подробнее о cookie",
+    ) == "settings"
+    assert client._classify_cookie_button(
+        "Согласен",
+        context="Сайт использует cookie. Согласен",
+    ) == "accept"
+
+
 def test_browser_client_does_not_classify_unsafe_business_button() -> None:
     assert BrowserClient()._classify_cookie_button("Заказать бесплатную консультацию") is None
     assert BrowserClient()._classify_cookie_button("Submit order") is None

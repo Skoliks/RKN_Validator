@@ -1,93 +1,72 @@
 # Compliance Scope
 
-This document describes the extended compliance domain for future development of the MVP. It is based on `checklist-sites-domains-2026 (1).md` and `podrobny-razbor-zakonov-sayty-2026.md`.
+Site Compliance Checker является техническим pre-check инструментом. Он собирает и структурирует внешние признаки на проверенных страницах, но не делает юридический вывод.
 
-The product remains a technical pre-check tool. It must not present findings as a legal conclusion, must not state that a site violates the law, and must keep manual review as the final confirmation step.
+## Что проверяет сервис
 
-## Scope Areas
+- Доступность сайта.
+- Доменную зону и применимость ручной проверки администратора домена через ЕСИА.
+- Формы и признаки сбора данных.
+- Признаки согласий рядом с формами.
+- Наличие privacy/confidentiality документа.
+- HTTPS и mixed content.
+- Внешние сервисы.
+- Browser-observed cookies и сетевые запросы, если browser check включён.
+- Cookie-banner признаки и опциональное взаимодействие с распознанными cookie-кнопками.
+- Рекламные сервисы, erid, маркировку и возможные рекламные блоки.
+- Базовые технические признаки доступности.
+- Внешнюю инфраструктуру и сторонние домены.
+- Реквизиты владельца сайта.
+- Признаки ориентации на российский рынок.
 
-### Domain Identification
+## Что сервис не делает
 
-For domains in `.ru`, `.рф`, and `.su`, the compliance scope includes identifying whether the domain zone is covered by Russian domain administrator identification requirements. The relevant operational risks include inability to register, renew, transfer, change administrator, or update NS delegation if required identification is not completed.
+- Не выдаёт юридическое заключение.
+- Не подтверждает нарушение закона.
+- Не подтверждает соответствие требованиям.
+- Не определяет фактическое место хранения персональных данных.
+- Не проверяет Whois.
+- Не использует GeoIP.
+- Не обращается к РКН API или другим внешним API.
+- Не заменяет ручной аудит документов, рекламы, cookies, доступности и инфраструктуры.
 
-Current MVP implication: `DomainComplianceAnalyzer` detects whether the domain zone is `.ru`, `.рф`, or `.su` and adds a manual-check recommendation for ESIA administrator identification. Administrator identity, registrar account status, actual ESIA identification status, and ownership history still require manual verification and are not checked by the MVP.
+## Запрещённые формулировки
 
-### User Authorization
+В report и risk wording нельзя писать:
 
-The scope includes detecting signs of user authorization and identifying whether authentication depends on foreign providers such as Google, Apple, Facebook, Microsoft, or similar OAuth flows.
+- "сайт нарушает закон";
+- "сайт незаконен";
+- "нарушение 152-ФЗ";
+- "нарушение закона о рекламе";
+- "данные хранятся за границей";
+- "сайт не соответствует ГОСТ";
+- "реклама оформлена неправильно";
+- "согласие отсутствует" как юридический факт.
 
-Allowed or lower-risk patterns may include local login/password, phone-based login, ESIA, and Russian authorization systems, but the MVP must report only technical evidence and avoid legal conclusions.
+## Допустимые формулировки
 
-### Personal Data
+Использовать осторожные формулировки:
 
-The scope includes detecting forms and page elements that may collect personal data: name, phone, email, address, message text, company details, INN, and similar fields. It also includes checking for privacy-related documents and consent signals near forms.
+- "обнаружены признаки";
+- "на проверенных страницах не найдено";
+- "требуется ручная проверка";
+- "на момент браузерной проверки";
+- "автоматическая проверка не является юридическим заключением";
+- "автоматическая проверка не подтверждает и не исключает нарушение";
+- "сервис не определяет фактическое место хранения персональных данных".
 
-The MVP can detect visible form and document signals. It cannot confirm the legal completeness of policy text, consent wording, retention periods, processing purposes, or internal operator procedures.
+## Что требует ручной проверки
 
-### Cookie Banner
+- Содержание политики конфиденциальности и согласий.
+- Назначение cookies и сторонних сетевых запросов.
+- Наличие возможности отклонить необязательные cookies.
+- Маркировка рекламных материалов и erid.
+- Условия передачи данных сторонним сервисам.
+- Фактическое место хранения и обработки персональных данных.
+- Доступность интерфейса по применимому стандарту.
+- Наличие отдельного контакта для обращений субъектов персональных данных.
+- Применимость требований к конкретному владельцу сайта и его процессам.
 
-The scope includes checking whether a site has a cookie banner or consent mechanism, especially when analytics, advertising pixels, chats, widgets, or other optional cookies are used.
+## Граница MVP
 
-The MVP now includes an optional Playwright-based `BrowserClient` infrastructure layer for collecting browser-observed cookies, network requests, visible text, and console errors when enabled. `CookieAnalyzer` uses that browser output to detect preliminary signs of a cookie banner, cookies after the initial page load before explicit user choice, and third-party analytics or advertising requests. An additional optional cookie interaction check can safely test recognized cookie accept/reject buttons in isolated browser contexts. It must not submit forms, click business CTA buttons, navigate intentionally to external destinations, or make legal conclusions. Manual review remains required.
-
-### Owner Requisites
-
-The scope includes visible owner details on the site: legal name or full name, INN, OGRN or OGRNIP, address, contacts, and a dedicated contact channel for personal data subject requests where applicable.
-
-The current MVP includes `OwnerRequisitesAnalyzer`, which detects visible organization/person names, INN, OGRN/OGRNIP, address-like text, phones, emails, and privacy-specific email contacts on crawled pages. It is a technical signal extractor and does not verify legal completeness of requisites.
-
-### Personal Data Localization
-
-The scope includes whether initial collection and storage of Russian citizens' personal data is performed using databases located in Russia.
-
-This cannot be reliably confirmed from static HTML alone. Future support may analyze declared hosting, visible infrastructure hints, and user-provided hosting information, but final verification is expected to remain manual unless authoritative data is supplied.
-
-### RKN Operator Notification
-
-The scope includes whether the site owner/operator has submitted required notification to Roskomnadzor for personal data processing.
-
-The current MVP does not query external registries or APIs. Future support may add a manual checklist field or offline evidence workflow. External API integration is outside the current MVP.
-
-### Advertising And ERID
-
-The scope includes internet advertising labeling: visible "advertising" markers, advertiser identification, and ERID tokens where applicable.
-
-The current MVP includes `AdvertisingAnalyzer`, which performs a preliminary automatic check for advertising services, visible advertising labels, advertiser mentions, `erid` tokens, and possible ad blocks on crawled pages. It uses already collected HTML, `ExternalServicesAnalyzer` output, and optional browser network data. It does not classify materials legally, does not verify ERID validity, and does not state that advertising is unlawful or incorrectly marked. Findings mean that manual review is required.
-
-### Accessibility
-
-The scope includes baseline accessibility requirements such as text scaling, contrast, keyboard navigation, alt text, meaningful links/headings, and accessible CAPTCHA where applicable.
-
-The current MVP includes `AccessibilityAnalyzer`, which performs a preliminary technical check of crawled HTML for missing `html lang`, image `alt`, empty links/buttons, missing form labels, iframe titles, heading-order warnings, and duplicate `id` values. It does not replace a full accessibility audit, does not verify ГОСТ/WCAG conformance, and does not make legal conclusions. Findings mean that manual review is required.
-
-### Hosting
-
-The scope includes whether hosting providers are listed in the relevant Russian hosting provider registry and whether the hosting provider identifies clients as required.
-
-The current MVP does not verify hosting registry status. Future work may expose hosting hints and manual checklist fields without adding external APIs to the MVP.
-
-The current MVP includes `InfrastructureAnalyzer`, which performs a preliminary analysis of third-party infrastructure domains and known service categories such as CDN, analytics, advertising, video, fonts, social, messenger, CRM, payment, maps, and API-like requests. It does not use Whois, GeoIP, RKN APIs, or external APIs, and it does not determine the factual hosting country or data storage location. Findings mean that manual review is required.
-
-### Russian Language
-
-The scope includes detecting whether the site has Russian-language content or appears oriented toward Russian users.
-
-The current MVP partially covers this through `RussianMarketAnalyzer`, which detects Russian-language and Russia-oriented technical signals.
-
-### Social Networks And Channels Over 10,000 Subscribers
-
-The scope includes identifying visible links to social networks, messengers, and public channels, and flagging the need to check whether channels/pages with 10,000 or more subscribers are registered in the RKN registry.
-
-The current MVP can classify some social network and messenger links as external services, but it cannot determine subscriber counts or registry status. That remains a future/manual check.
-
-## Out Of Scope For The Current MVP
-
-The current MVP must not be expanded to include PostgreSQL, LLM, Telegram bot functionality, MCP, external registry APIs, background jobs, or persistent check history. Playwright is allowed only as an optional browser infrastructure layer controlled by settings; it must not introduce business logic, risk scoring, screenshots, form submission, or automatic consent actions.
-
-Future analyzers should follow the existing layered architecture: analyzers work from `PageData` or explicit infrastructure outputs, services coordinate results, `RiskService` uses analyzer outputs only, and `ReportService` reports only facts present in `CheckResult`. Browser infrastructure should be used only where static HTML analysis is insufficient and must not contain compliance decisions.
-
-## Final MVP Reporting Scope
-
-The final backend MVP report is a structured preliminary technical report. It summarizes only signals found on checked pages and in collected browser/network data, lists practical recommendations, records the areas actually checked, separates manual-review requirements, and states limitations.
-
-The report must not be treated as a legal conclusion. Automatic checks do not determine factual personal-data storage location, do not verify registry status, do not prove advertising or accessibility compliance, and do not replace a full legal, security, or accessibility audit. Future stages may add packaging, Docker/deployment hardening, report export, and optional frontend/Telegram/MCP surfaces outside this backend MVP.
+Backend-MVP завершён как синхронный API pre-check. Следующие этапы могут включать Docker/release cleanup, экспорт отчёта, frontend, Telegram, MCP, историю проверок и фоновые задачи, но они находятся вне текущей backend-MVP логики.

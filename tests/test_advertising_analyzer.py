@@ -49,6 +49,15 @@ def test_advertising_analyzer_detects_erid() -> None:
     assert any(item.item_type == "erid" for item in result.text_items)
 
 
+def test_advertising_analyzer_does_not_treat_timer_id_as_erid() -> None:
+    result = AdvertisingAnalyzer().analyze(
+        [page("<script>let timerID = setInterval(function () {}, 1000)</script>")]
+    )
+
+    assert result.erid_found is False
+    assert not any("setInterval" in item.value for item in result.text_items)
+
+
 def test_advertising_analyzer_detects_ad_label() -> None:
     result = AdvertisingAnalyzer().analyze([page("<p>Реклама</p>")])
 
