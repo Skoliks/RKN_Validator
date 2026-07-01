@@ -25,6 +25,7 @@ Backend-MVP выполняет предварительную техническ
 - Structured ReportService.
 - `GET /health`.
 - `POST /check`.
+- `POST /check/markdown` for Markdown report export.
 - Dockerfile и docker-compose для MVP-запуска.
 
 ## Что не входит в MVP
@@ -69,7 +70,7 @@ Backend-MVP выполняет предварительную техническ
 
 ## Будущие версии
 
-- Export report в Markdown/HTML/PDF.
+- Export report в HTML/PDF.
 - Frontend.
 - Telegram bot.
 - MCP interface.

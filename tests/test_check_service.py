@@ -169,6 +169,12 @@ async def test_check_service_site_with_form_without_policy() -> None:
     assert {"privacy_policy_not_found", "forms_without_consent"}.issubset(
         {factor.code for factor in result.risk_assessment.factors}
     )
+    consent_factor = next(
+        factor
+        for factor in result.risk_assessment.factors
+        if factor.code == "forms_without_consent"
+    )
+    assert consent_factor.level == "medium"
 
 
 @pytest.mark.asyncio

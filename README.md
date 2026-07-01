@@ -108,6 +108,26 @@ curl -X POST "http://localhost:8000/check" \
 }
 ```
 
+### Markdown export
+
+`POST /check/markdown` принимает то же тело запроса, что и `POST /check`, запускает обычную проверку и возвращает человекочитаемый отчёт в `text/markdown`.
+
+`body.json`:
+
+```json
+{
+  "url": "https://example.com"
+}
+```
+
+Windows PowerShell:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/check/markdown" -H "Content-Type: application/json" --data-binary "@body.json"
+```
+
+Markdown export форматирует уже готовый `CheckResult`: он не запускает анализаторы повторно, не использует LLM и не обращается к внешним API.
+
 ## Пример структуры ответа
 
 Ответ `POST /check` содержит основные блоки:

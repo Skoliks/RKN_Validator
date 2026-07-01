@@ -24,14 +24,16 @@
 20A. Final report structure - done.
 20B. Risk/JSON cleanup - done.
 21. Docker + README + release cleanup - done.
+22. Real sites reliability fixes - done.
+23. Markdown report export - done.
 
 ## Backend MVP Status
 
-Backend-MVP logic is complete. The service provides `GET /health` and `POST /check`, structured risk assessment, and a final report with `summary`, `recommendations`, `checked_areas`, `manual_review_required`, and `limitations`.
+Backend-MVP logic is complete. The service provides `GET /health`, `POST /check`, `POST /check/markdown`, structured risk assessment, and a final report with `summary`, `recommendations`, `checked_areas`, `manual_review_required`, and `limitations`.
 
 ## Future
 
-- Export report to Markdown/HTML/PDF.
+- Export report to HTML/PDF.
 - Frontend.
 - Telegram bot.
 - MCP interface.

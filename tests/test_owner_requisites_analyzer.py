@@ -203,3 +203,61 @@ def test_owner_requisites_analyzer_extracts_legal_and_postal_addresses_separatel
         "675000, Амурская область, г. Благовещенск, ул. Ленина, д. 1",
         "675002, Амурская область, г. Благовещенск, ул. Зейская, 173, офис 403",
     ]
+
+
+def test_owner_requisites_analyzer_does_not_use_news_organization_as_owner() -> None:
+    page = make_page(
+        """
+        <main>
+          <article>
+            <h1>Новости партнёров</h1>
+            <p>ООО «Газпром переработка Благовещенск» провело мероприятие для студентов.</p>
+          </article>
+        </main>
+        """,
+        url="https://amursu.ru/news/partner-event",
+    )
+
+    result = OwnerRequisitesAnalyzer().analyze([page])
+
+    assert result.organization_name is None
+    assert result.found is False
+    assert all("Газпром переработка Благовещенск" not in item.value for item in result.items)
+
+
+def test_owner_requisites_analyzer_uses_footer_owner_signal() -> None:
+    page = make_page(
+        """
+        <footer>
+          © ФГБОУ ВО Амурский государственный университет
+        </footer>
+        <main>
+          <p>ООО «Газпром переработка Благовещенск» упоминается в новости.</p>
+        </main>
+        """,
+        url="https://amursu.ru",
+    )
+
+    result = OwnerRequisitesAnalyzer().analyze([page])
+
+    assert result.found is True
+    assert result.organization_name == "ФГБОУ ВО Амурский государственный университет"
+    assert result.manual_check_required is False
+
+
+def test_owner_requisites_analyzer_requires_manual_check_for_conflicting_owner_mentions() -> None:
+    page = make_page(
+        """
+        <footer>
+          © ООО «Первая организация»
+          <div>Реквизиты: ООО «Вторая организация» ИНН 7700000000</div>
+        </footer>
+        """
+    )
+
+    result = OwnerRequisitesAnalyzer().analyze([page])
+
+    assert result.found is True
+    assert result.organization_name is None
+    assert result.manual_check_required is True
+    assert any("разные упоминания организаций" in warning for warning in result.warnings)

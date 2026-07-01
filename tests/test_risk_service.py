@@ -130,7 +130,7 @@ def test_good_site_has_low_risk() -> None:
     assert_score_level_consistent(result)
 
 
-def test_forms_without_policy_and_consent_escalates_to_high() -> None:
+def test_forms_without_policy_and_consent_stays_medium_without_hard_failure() -> None:
     result = RiskService().assess(
         forms=make_personal_forms(),
         consents=ConsentsResult(),
@@ -139,13 +139,16 @@ def test_forms_without_policy_and_consent_escalates_to_high() -> None:
         check=make_check(),
     )
 
-    assert result.level == "high"
-    assert result.total_score == 90
+    assert result.level == "medium"
+    assert result.total_score <= 85
     assert {
         "personal_data_collection_detected",
         "privacy_policy_not_found",
         "forms_without_consent",
     }.issubset(factor_codes(result))
+    factor = next(factor for factor in result.factors if factor.code == "forms_without_consent")
+    assert factor.level == "medium"
+    assert "требуется ручная проверка" in factor.message
     assert_score_level_consistent(result)
 
 

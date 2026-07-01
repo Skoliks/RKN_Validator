@@ -241,6 +241,23 @@ def test_cookie_analyzer_preserves_text_banner_when_interaction_does_not_find_it
     assert not any("banner was not found" in warning.lower() for warning in result.warnings)
 
 
+def test_cookie_analyzer_deduplicates_reject_button_warnings() -> None:
+    result = CookieAnalyzer().analyze(
+        browser_check(
+            visible_text="Мы используем cookie. Принять",
+            interaction=CookieInteractionResult(
+                enabled=True,
+                performed=True,
+                banner_found=True,
+                reject_clicked=False,
+                accept_clicked=False,
+            ),
+        )
+    )
+
+    assert " ".join(result.warnings).count("кнопка отклонения") == 1
+
+
 @pytest.mark.asyncio
 async def test_check_service_includes_cookie_analysis_when_browser_check_enabled() -> None:
     service = CheckService(

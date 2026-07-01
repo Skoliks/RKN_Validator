@@ -25,6 +25,7 @@ class RiskService:
         "advertising_before_consent_detected",
         "cookie_reject_button_not_found",
         "cookie_reject_did_not_reduce_tracking",
+        "forms_without_consent",
         "advertising_service_without_erid",
         "advertising_service_without_label",
         "possible_ad_blocks_detected",
@@ -92,9 +93,9 @@ class RiskService:
             factors.append(
                 self._factor(
                     code="forms_without_consent",
-                    level="high",
-                    score=35,
-                    message="Для части форм не обнаружены признаки согласия на обработку данных.",
+                    level="medium",
+                    score=20,
+                    message="Для части форм не обнаружены признаки согласия рядом с формой; требуется ручная проверка.",
                     evidence=forms_without_consent,
                 )
             )
@@ -644,11 +645,6 @@ class RiskService:
     ) -> str:
         factor_codes = {factor.code for factor in factors}
         high_conditions = (
-            {
-                "personal_data_collection_detected",
-                "privacy_policy_not_found",
-                "forms_without_consent",
-            }.issubset(factor_codes),
             {"personal_data_collection_detected", "forms_submit_over_http"}.issubset(factor_codes),
             "foreign_auth_detected" in factor_codes,
         )

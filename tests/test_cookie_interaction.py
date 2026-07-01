@@ -179,7 +179,7 @@ def test_cookie_interaction_result_without_reject_button_has_warning_after_analy
     cookies = CookieAnalyzer().analyze(check)
 
     assert cookies.reject_button_found is False
-    assert "Явная кнопка отклонения cookie" in " ".join(cookies.warnings)
+    assert "явная кнопка отклонения не была найдена автоматически" in " ".join(cookies.warnings)
 
 
 def test_cookie_interaction_reject_reduces_cookies() -> None:

@@ -116,6 +116,7 @@ class CookieAnalyzer:
         elif not cookie_or_tracking_found:
             interaction_warnings = []
         warnings.extend(interaction_warnings)
+        warnings = self._dedupe_warnings(warnings)
 
         return CookieAnalysisResult(
             browser_check_available=True,
@@ -321,7 +322,19 @@ class CookieAnalyzer:
             for warning in warnings
             if "banner" not in warning.lower()
             and "баннер" not in warning.lower()
+            and "кнопка отклонения" not in warning.lower()
         ]
+
+    def _dedupe_warnings(self, warnings: list[str]) -> list[str]:
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for warning in warnings:
+            normalized = " ".join(warning.split()).lower()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            deduped.append(warning)
+        return deduped
 
     def _matches_domain(self, domain: str | None, candidates: tuple[str, ...]) -> bool:
         if not domain:

@@ -99,6 +99,20 @@ def test_check_endpoint_with_valid_url() -> None:
     assert response.json()["check"]["status"] == "completed"
 
 
+def test_check_markdown_endpoint_returns_markdown() -> None:
+    override_check_service(make_result())
+
+    with TestClient(app) as client:
+        response = client.post("/check/markdown", json={"url": "example.ru"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/markdown")
+    assert "# Отчёт по проверке сайта" in response.text
+    assert "**Сайт:** https://example.ru" in response.text
+    assert "**Домен:** example.ru" in response.text
+    assert "**Статус проверки:** completed" in response.text
+
+
 def test_check_endpoint_with_plain_text_returns_400() -> None:
     override_check_service(
         make_result(

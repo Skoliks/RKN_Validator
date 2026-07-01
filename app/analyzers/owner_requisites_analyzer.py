@@ -13,6 +13,10 @@ class OwnerRequisitesAnalyzer:
             re.IGNORECASE,
         ),
         re.compile(
+            r"\bФГБОУ\s+ВО\s+[^©\n\r,;]{2,160}",
+            re.IGNORECASE,
+        ),
+        re.compile(
             r"\bОбщество\s+с\s+ограниченной\s+ответственностью\s+[\"«]?[^\"»\n\r,;]{2,120}[\"»]?",
             re.IGNORECASE,
         ),
@@ -71,20 +75,51 @@ class OwnerRequisitesAnalyzer:
     )
     weak_address_markers = ("рф",)
     postal_index_pattern = re.compile(r"\b\d{6}\b")
+    owner_conflict_warning = (
+        "На проверенных страницах обнаружены разные упоминания организаций; требуется ручная проверка владельца сайта."
+    )
+    reliable_page_markers = (
+        "contact",
+        "contacts",
+        "kontakty",
+        "about",
+        "privacy",
+        "policy",
+        "legal",
+        "requisites",
+        "rekviz",
+        "sveden",
+    )
+    reliable_attr_markers = (
+        "footer",
+        "copyright",
+        "contact",
+        "contacts",
+        "about",
+        "requisites",
+        "rekviz",
+        "legal",
+        "privacy",
+        "policy",
+    )
+    requisites_context_markers = ("ИНН", "ОГРН", "ОГРНИП", "реквизит", "сведения об организации")
 
     def analyze(self, pages: list[PageData]) -> OwnerRequisitesResult:
         items: list[OwnerRequisiteItem] = []
         warnings: list[str] = []
         seen: set[tuple[str, str, str]] = set()
+        organization_candidates: list[OwnerRequisiteItem] = []
+        organization_seen: set[tuple[str, str, str]] = set()
 
         for page in pages:
             if not page.html:
                 continue
 
             page_url = page.final_url or page.url
+            soup = BeautifulSoup(page.html, "html.parser")
             text = self._page_text(page.html)
 
-            self._find_first(self.organization_patterns, text, "organization_name", page_url, items, seen)
+            self._find_organization_candidates(soup, page_url, organization_candidates, organization_seen)
             self._find_first(self.person_patterns, text, "person_name", page_url, items, seen)
             self._find_group(self.inn_pattern, text, "inn", page_url, items, seen)
             self._find_group(self.ogrnip_pattern, text, "ogrnip", page_url, items, seen)
@@ -93,7 +128,13 @@ class OwnerRequisitesAnalyzer:
             self._find_emails(text, page_url, items, seen)
             self._find_address(text, page_url, items, seen, warnings)
 
-        return self._build_result(items, warnings)
+        manual_check_required = self._apply_organization_choice(
+            organization_candidates,
+            items,
+            seen,
+            warnings,
+        )
+        return self._build_result(items, warnings, manual_check_required)
 
     def _page_text(self, html: str) -> str:
         text = BeautifulSoup(html, "html.parser").get_text(" ", strip=True)
@@ -113,6 +154,96 @@ class OwnerRequisitesAnalyzer:
             if match:
                 self._append_item(items, seen, field_type, match.group(0), page_url, match.group(0))
                 return
+
+    def _find_organization_candidates(
+        self,
+        soup: BeautifulSoup,
+        page_url: str,
+        items: list[OwnerRequisiteItem],
+        seen: set[tuple[str, str, str]],
+    ) -> None:
+        for text in self._reliable_owner_texts(soup, page_url):
+            for pattern in self.organization_patterns:
+                for match in pattern.finditer(text):
+                    self._append_item(
+                        items,
+                        seen,
+                        "organization_name",
+                        match.group(0),
+                        page_url,
+                        match.group(0),
+                    )
+
+    def _reliable_owner_texts(self, soup: BeautifulSoup, page_url: str) -> list[str]:
+        texts: list[str] = []
+        for tag in soup.find_all(["footer"]):
+            texts.append(tag.get_text(" ", strip=True))
+
+        for tag in soup.find_all(True):
+            attrs = " ".join(
+                str(value)
+                for value in [tag.get("id"), tag.get("class")]
+                if value
+            ).lower()
+            if any(marker in attrs for marker in self.reliable_attr_markers):
+                texts.append(tag.get_text(" ", strip=True))
+
+        page_url_lowered = page_url.lower()
+        if any(marker in page_url_lowered for marker in self.reliable_page_markers):
+            texts.append(soup.get_text(" ", strip=True))
+
+        page_text = soup.get_text(" ", strip=True)
+        if self.inn_pattern.search(page_text) or self.ogrn_pattern.search(page_text) or self.ogrnip_pattern.search(page_text):
+            texts.append(page_text)
+
+        for tag in soup.find_all(True):
+            text = tag.get_text(" ", strip=True)
+            if any(marker.lower() in text.lower() for marker in self.requisites_context_markers):
+                texts.append(text)
+
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for text in texts:
+            normalized = re.sub(r"\s+", " ", text).strip()
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                deduped.append(normalized)
+        return deduped
+
+    def _apply_organization_choice(
+        self,
+        candidates: list[OwnerRequisiteItem],
+        items: list[OwnerRequisiteItem],
+        seen: set[tuple[str, str, str]],
+        warnings: list[str],
+    ) -> bool:
+        organization_values = {
+            self._normalize_org_name(candidate.value): candidate
+            for candidate in candidates
+            if self._normalize_org_name(candidate.value)
+        }
+        if not organization_values:
+            return False
+        if len(organization_values) > 1:
+            if self.owner_conflict_warning not in warnings:
+                warnings.append(self.owner_conflict_warning)
+            return True
+
+        candidate = next(iter(organization_values.values()))
+        self._append_item(
+            items,
+            seen,
+            "organization_name",
+            candidate.value,
+            candidate.page_url,
+            candidate.evidence,
+        )
+        return False
+
+    def _normalize_org_name(self, value: str) -> str:
+        normalized = re.sub(r"\s+", " ", value).strip().lower()
+        normalized = normalized.replace("«", "\"").replace("»", "\"")
+        return normalized
 
     def _find_group(
         self,
@@ -306,6 +437,7 @@ class OwnerRequisitesAnalyzer:
         self,
         items: list[OwnerRequisiteItem],
         warnings: list[str],
+        manual_check_required: bool = False,
     ) -> OwnerRequisitesResult:
         return OwnerRequisitesResult(
             found=bool(items),
@@ -318,6 +450,7 @@ class OwnerRequisitesAnalyzer:
             phone_found=self._has_item(items, "phone"),
             email_found=self._has_item(items, "email") or self._has_item(items, "privacy_email"),
             privacy_email_found=self._has_item(items, "privacy_email"),
+            manual_check_required=manual_check_required,
             items=items,
             warnings=warnings,
         )

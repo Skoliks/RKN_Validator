@@ -39,5 +39,6 @@ class OwnerRequisitesResult(BaseModel):
     phone_found: bool = False
     email_found: bool = False
     privacy_email_found: bool = False
+    manual_check_required: bool = False
     items: list[OwnerRequisiteItem] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
